@@ -216,18 +216,18 @@ html, body, .stApp, button, input, textarea, select,
 .ae-help  {{ font-size: 13px; color: #66788c; margin: 0 0 12px 0; }}
 
 /* gold run button (navy text) */
-div.stButton {{ width: 100%; }}
-div.stButton > button {{
+div.stButton, div[data-testid="stButton"] {{ width: 100% !important; }}
+div.stButton > button, div[data-testid="stButton"] > button {{
     background: linear-gradient(135deg, #FFC62E 0%, {GOLD} 100%);
-    color: {NAVY}; font-size: 22px; font-weight: 800; letter-spacing: .4px;
-    padding: 20px 0; border: none; border-radius: 14px; width: 100%;
+    color: {NAVY}; font-size: 23px; font-weight: 800; letter-spacing: .4px;
+    padding: 22px 0; border: none; border-radius: 14px; width: 100% !important;
     box-shadow: 0 8px 22px rgba(253,184,19,0.45); transition: all .15s ease;
 }}
-div.stButton > button:hover {{
+div.stButton > button:hover, div[data-testid="stButton"] > button:hover {{
     background: linear-gradient(135deg, {GOLD} 0%, {GOLD_DARK} 100%);
     color: {NAVY}; transform: translateY(-2px); box-shadow: 0 12px 28px rgba(253,184,19,0.52);
 }}
-div.stButton > button:active {{ transform: translateY(0); }}
+div.stButton > button:active, div[data-testid="stButton"] > button:active {{ transform: translateY(0); }}
 
 /* navy download button */
 div.stDownloadButton > button {{
