@@ -179,19 +179,72 @@ def _dsid(r):
     return getattr(r, "default_dataset_id", None) or getattr(r, "defaultDatasetId", None)
 
 # ============================ UI ============================
-st.set_page_config(page_title="North Texas Sales Rep Sourcing", page_icon="🎯", layout="wide")
-st.title("🎯 North Texas Sales Rep Sourcing")
-st.caption("Find sales reps in controls, building automation, HVAC, power, and data-center companies. "
-           "Pick a location and how many to pull, then download the list.")
+st.set_page_config(page_title="Albireo Energy · Sales Rep Sourcing", page_icon="🎯", layout="wide")
 
-col1, col2 = st.columns([2, 1])
+NAVY = "#0E2D52"; NAVY_DARK = "#081C36"; BLUE = "#1F6FB2"
+GOLD = "#FDB813"; GOLD_DARK = "#E0A200"; INK = "#16263B"; LIGHT = "#F4F7FA"
+
+st.markdown(f"""
+<style>
+.stApp {{ background: {LIGHT}; }}
+.block-container {{ padding-top: 2rem; max-width: 1100px; }}
+
+/* header banner */
+.ae-header {{
+    background: linear-gradient(135deg, {NAVY} 0%, {NAVY_DARK} 100%);
+    border-bottom: 5px solid {GOLD};
+    border-radius: 16px; padding: 30px 36px; margin-bottom: 30px;
+    box-shadow: 0 8px 28px rgba(8,28,54,0.22);
+}}
+.ae-eyebrow {{ color: {GOLD}; font-weight: 800; letter-spacing: 3px;
+    font-size: 13px; text-transform: uppercase; margin: 0; }}
+.ae-title {{ color: #fff; font-size: 38px; font-weight: 800; margin: 6px 0 0 0; line-height: 1.05; }}
+
+/* input section labels */
+.ae-label {{ font-size: 22px; font-weight: 800; color: {NAVY}; margin: 2px 0 2px 0; }}
+.ae-help  {{ font-size: 13px; color: #5b6b7d; margin: 0 0 12px 0; }}
+
+/* big gold run button with navy text */
+div.stButton > button {{
+    background: {GOLD}; color: {NAVY}; font-size: 19px; font-weight: 800;
+    padding: 16px 0; border: none; border-radius: 12px; width: 100%;
+    box-shadow: 0 6px 18px rgba(253,184,19,0.40); transition: all .15s ease;
+}}
+div.stButton > button:hover {{ background: {GOLD_DARK}; color: {NAVY}; transform: translateY(-1px); }}
+
+/* make the input cards pop */
+div[data-testid="stVerticalBlockBorderWrapper"] {{
+    background: #fff; border-radius: 14px;
+    box-shadow: 0 3px 14px rgba(14,45,82,0.08); border: 1px solid #e6edf4 !important;
+}}
+div[data-testid="stVerticalBlockBorderWrapper"] > div {{ padding: 6px 10px; }}
+</style>
+""", unsafe_allow_html=True)
+
+st.markdown("""
+<div class="ae-header">
+    <p class="ae-eyebrow">Albireo Energy</p>
+    <h1 class="ae-title">Sales Rep Sourcing</h1>
+</div>
+""", unsafe_allow_html=True)
+
+col1, col2 = st.columns(2, gap="large")
 with col1:
-    choice = st.selectbox("Location", LOCATION_PRESETS + ["Custom…"])
-    location = st.text_input("Enter a location") if choice == "Custom…" else choice
+    with st.container(border=True):
+        st.markdown('<p class="ae-label">📍 Location</p>', unsafe_allow_html=True)
+        st.markdown('<p class="ae-help">Where to search for reps</p>', unsafe_allow_html=True)
+        choice = st.selectbox("Location", LOCATION_PRESETS + ["Custom…"], label_visibility="collapsed")
+        location = (st.text_input("Enter a location", label_visibility="collapsed",
+                                  placeholder="Type a city or metro area")
+                    if choice == "Custom…" else choice)
 with col2:
-    size = st.slider("Number of profiles to pull", 10, 200, 25, step=5)
+    with st.container(border=True):
+        st.markdown('<p class="ae-label">🎯 Number of Profiles</p>', unsafe_allow_html=True)
+        st.markdown('<p class="ae-help">How many reps to pull this run</p>', unsafe_allow_html=True)
+        size = st.slider("Number of profiles to pull", 10, 200, 25, step=5, label_visibility="collapsed")
 
-if st.button("Run sourcing", type="primary"):
+st.write("")
+if st.button("🔎  Run Sourcing", type="primary"):
     if not location:
         st.warning("Please choose or enter a location.")
         st.stop()
