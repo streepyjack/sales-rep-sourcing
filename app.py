@@ -182,29 +182,38 @@ def _dsid(r):
 st.set_page_config(page_title="Albireo Energy · Sales Rep Sourcing", page_icon="🎯", layout="wide")
 
 NAVY = "#0E2D52"; NAVY_DARK = "#081C36"; BLUE = "#1F6FB2"
-GOLD = "#FDB813"; GOLD_DARK = "#E0A200"; INK = "#16263B"; LIGHT = "#F4F7FA"
+GOLD = "#FDB813"; GOLD_DARK = "#E0A200"; INK = "#16263B"
+GRAY = "#E5EAF0"; CARD = "#FFFFFF"; BORDER = "#D6DEE8"
 
 st.markdown(f"""
 <style>
-.stApp {{ background: {LIGHT}; }}
-.block-container {{ padding-top: 2rem; max-width: 1100px; }}
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+html, body, .stApp, button, input, textarea, select,
+[data-testid="stMarkdownContainer"] {{ font-family: 'Inter', -apple-system, sans-serif; }}
+
+.stApp {{ background: {GRAY}; }}
+.block-container {{ padding-top: 2.2rem; padding-bottom: 2rem; max-width: 1080px; }}
 
 /* header banner */
 .ae-header {{
     background: linear-gradient(135deg, {NAVY} 0%, {NAVY_DARK} 100%);
     border-bottom: 5px solid {GOLD};
-    border-radius: 16px; padding: 30px 36px; margin-bottom: 30px;
-    box-shadow: 0 8px 28px rgba(8,28,54,0.22);
+    border-radius: 18px; padding: 32px 38px; margin-bottom: 28px;
+    box-shadow: 0 10px 30px rgba(8,28,54,0.25);
 }}
 .ae-eyebrow {{ color: {GOLD}; font-weight: 800; letter-spacing: 3px;
     font-size: 13px; text-transform: uppercase; margin: 0; }}
-.ae-title {{ color: #fff; font-size: 38px; font-weight: 800; margin: 6px 0 0 0; line-height: 1.05; }}
+.ae-title {{ color: #fff; font-size: 40px; font-weight: 800; margin: 6px 0 0 0; line-height: 1.05; }}
+.ae-chips {{ display: flex; flex-wrap: wrap; gap: 8px; margin-top: 18px; }}
+.ae-chip {{ background: rgba(255,255,255,0.10); color: #cfdbea;
+    border: 1px solid rgba(255,255,255,0.18); font-size: 12px; font-weight: 600;
+    padding: 5px 13px; border-radius: 999px; }}
 
 /* input section labels */
 .ae-label {{ font-size: 22px; font-weight: 800; color: {NAVY}; margin: 2px 0 2px 0; }}
-.ae-help  {{ font-size: 13px; color: #5b6b7d; margin: 0 0 12px 0; }}
+.ae-help  {{ font-size: 13px; color: #66788c; margin: 0 0 12px 0; }}
 
-/* big gold run button with navy text */
+/* gold run button (navy text) */
 div.stButton > button {{
     background: {GOLD}; color: {NAVY}; font-size: 19px; font-weight: 800;
     padding: 16px 0; border: none; border-radius: 12px; width: 100%;
@@ -212,12 +221,29 @@ div.stButton > button {{
 }}
 div.stButton > button:hover {{ background: {GOLD_DARK}; color: {NAVY}; transform: translateY(-1px); }}
 
-/* make the input cards pop */
-div[data-testid="stVerticalBlockBorderWrapper"] {{
-    background: #fff; border-radius: 14px;
-    box-shadow: 0 3px 14px rgba(14,45,82,0.08); border: 1px solid #e6edf4 !important;
+/* navy download button */
+div.stDownloadButton > button {{
+    background: {NAVY}; color: #fff; font-size: 15px; font-weight: 700;
+    padding: 12px 26px; border: none; border-radius: 10px;
+    box-shadow: 0 4px 14px rgba(14,45,82,0.25); transition: all .15s ease;
 }}
-div[data-testid="stVerticalBlockBorderWrapper"] > div {{ padding: 6px 10px; }}
+div.stDownloadButton > button:hover {{ background: {NAVY_DARK}; color: #fff; transform: translateY(-1px); }}
+
+/* input cards */
+div[data-testid="stVerticalBlockBorderWrapper"] {{
+    background: {CARD}; border-radius: 16px;
+    box-shadow: 0 4px 18px rgba(14,45,82,0.09); border: 1px solid {BORDER} !important;
+}}
+div[data-testid="stVerticalBlockBorderWrapper"] > div {{ padding: 10px 16px; }}
+
+/* branded results banner */
+.ae-result {{ background: {BLUE}; color: #fff; font-weight: 700; font-size: 16px;
+    padding: 13px 20px; border-radius: 12px; margin: 8px 0 16px 0;
+    box-shadow: 0 4px 14px rgba(31,111,178,0.25); }}
+
+/* footer */
+.ae-footer {{ text-align: center; color: #8a98a8; font-size: 12px;
+    margin-top: 36px; padding-top: 18px; border-top: 1px solid {BORDER}; }}
 </style>
 """, unsafe_allow_html=True)
 
@@ -225,6 +251,14 @@ st.markdown("""
 <div class="ae-header">
     <p class="ae-eyebrow">Albireo Energy</p>
     <h1 class="ae-title">Sales Rep Sourcing</h1>
+    <div class="ae-chips">
+        <span class="ae-chip">Building Automation</span>
+        <span class="ae-chip">HVAC &amp; Heating</span>
+        <span class="ae-chip">Power Systems</span>
+        <span class="ae-chip">Data Centers</span>
+        <span class="ae-chip">PLC &amp; Controls</span>
+        <span class="ae-chip">North Texas</span>
+    </div>
 </div>
 """, unsafe_allow_html=True)
 
@@ -266,7 +300,8 @@ if st.button("🔎  Run Sourcing", type="primary"):
         # on-target first
         recs.sort(key=lambda r: (r['Vertical Match'] == '—', r['Current Company']))
         df = pd.DataFrame(recs, columns=COLUMNS)
-        st.success(f"Found {len(df)} reps near {location}.")
+        st.markdown(f'<div class="ae-result">✓ Found {len(df)} reps near {location}</div>',
+                    unsafe_allow_html=True)
         st.dataframe(df, use_container_width=True, hide_index=True)
         stamp = datetime.date.today().isoformat()
         st.download_button("⬇ Download Excel", build_excel_bytes(recs),
@@ -274,3 +309,6 @@ if st.button("🔎  Run Sourcing", type="primary"):
                            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
     except Exception as e:
         st.error(f"Something went wrong talking to Apify: {e}")
+
+st.markdown('<div class="ae-footer">Albireo Energy · Internal sourcing tool · Powered by LinkedIn public data via Apify</div>',
+            unsafe_allow_html=True)
