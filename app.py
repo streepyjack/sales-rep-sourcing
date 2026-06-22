@@ -218,11 +218,16 @@ html, body, .stApp, button, input, textarea, select,
 /* gold run button (navy text) */
 div.stButton {{ width: 100%; }}
 div.stButton > button {{
-    background: {GOLD}; color: {NAVY}; font-size: 19px; font-weight: 800;
-    padding: 16px 0; border: none; border-radius: 12px; width: 100%;
-    box-shadow: 0 6px 18px rgba(253,184,19,0.40); transition: all .15s ease;
+    background: linear-gradient(135deg, #FFC62E 0%, {GOLD} 100%);
+    color: {NAVY}; font-size: 22px; font-weight: 800; letter-spacing: .4px;
+    padding: 20px 0; border: none; border-radius: 14px; width: 100%;
+    box-shadow: 0 8px 22px rgba(253,184,19,0.45); transition: all .15s ease;
 }}
-div.stButton > button:hover {{ background: {GOLD_DARK}; color: {NAVY}; transform: translateY(-1px); }}
+div.stButton > button:hover {{
+    background: linear-gradient(135deg, {GOLD} 0%, {GOLD_DARK} 100%);
+    color: {NAVY}; transform: translateY(-2px); box-shadow: 0 12px 28px rgba(253,184,19,0.52);
+}}
+div.stButton > button:active {{ transform: translateY(0); }}
 
 /* navy download button */
 div.stDownloadButton > button {{
@@ -280,7 +285,7 @@ with col2:
         size = st.slider("Number of profiles to pull", 10, 200, 25, step=5, label_visibility="collapsed")
 
 st.write("")
-bcol = st.columns([2, 3, 2])
+bcol = st.columns([1, 3, 1])
 with bcol[1]:
     clicked = st.button("🔎  Run Sourcing", type="primary")
 
