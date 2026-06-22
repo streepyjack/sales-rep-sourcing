@@ -192,18 +192,20 @@ html, body, .stApp, button, input, textarea, select,
 [data-testid="stMarkdownContainer"] {{ font-family: 'Inter', -apple-system, sans-serif; }}
 
 .stApp {{ background: {GRAY}; }}
-.block-container {{ padding-top: 2.2rem; padding-bottom: 2rem; max-width: 1080px; }}
+.block-container {{ padding-top: 2.2rem; padding-bottom: 2rem;
+    padding-left: 3rem; padding-right: 3rem; max-width: 1320px; }}
 
 /* header banner */
 .ae-header {{
     background: linear-gradient(135deg, {NAVY} 0%, {NAVY_DARK} 100%);
     border-bottom: 5px solid {GOLD};
-    border-radius: 18px; padding: 32px 38px; margin-bottom: 28px;
+    border-radius: 18px; padding: 40px 44px; margin-bottom: 30px;
     box-shadow: 0 10px 30px rgba(8,28,54,0.25);
 }}
-.ae-eyebrow {{ color: {GOLD}; font-weight: 800; letter-spacing: 3px;
-    font-size: 13px; text-transform: uppercase; margin: 0; }}
-.ae-title {{ color: #fff; font-size: 40px; font-weight: 800; margin: 6px 0 0 0; line-height: 1.05; }}
+.ae-eyebrow {{ color: {GOLD} !important; font-weight: 800; letter-spacing: 3px;
+    font-size: 14px; text-transform: uppercase; margin: 0; }}
+.ae-title {{ color: #ffffff !important; font-size: 46px; font-weight: 800;
+    margin: 8px 0 0 0; line-height: 1.05; }}
 .ae-chips {{ display: flex; flex-wrap: wrap; gap: 8px; margin-top: 18px; }}
 .ae-chip {{ background: rgba(255,255,255,0.10); color: #cfdbea;
     border: 1px solid rgba(255,255,255,0.18); font-size: 12px; font-weight: 600;
@@ -214,6 +216,7 @@ html, body, .stApp, button, input, textarea, select,
 .ae-help  {{ font-size: 13px; color: #66788c; margin: 0 0 12px 0; }}
 
 /* gold run button (navy text) */
+div.stButton {{ width: 100%; }}
 div.stButton > button {{
     background: {GOLD}; color: {NAVY}; font-size: 19px; font-weight: 800;
     padding: 16px 0; border: none; border-radius: 12px; width: 100%;
@@ -234,7 +237,14 @@ div[data-testid="stVerticalBlockBorderWrapper"] {{
     background: {CARD}; border-radius: 16px;
     box-shadow: 0 4px 18px rgba(14,45,82,0.09); border: 1px solid {BORDER} !important;
 }}
-div[data-testid="stVerticalBlockBorderWrapper"] > div {{ padding: 10px 16px; }}
+div[data-testid="stVerticalBlockBorderWrapper"] > div {{ padding: 18px 22px; min-height: 150px; }}
+
+/* empty state */
+.ae-empty {{ background: #fff; border: 2px dashed #c4d0de; border-radius: 16px;
+    padding: 60px 24px; text-align: center; margin-top: 8px; }}
+.ae-empty .big {{ font-size: 46px; line-height: 1; }}
+.ae-empty .t {{ font-size: 18px; font-weight: 700; color: {NAVY}; margin-top: 12px; }}
+.ae-empty .s {{ font-size: 14px; color: #7a8a9c; margin-top: 4px; }}
 
 /* branded results banner */
 .ae-result {{ background: {BLUE}; color: #fff; font-weight: 700; font-size: 16px;
@@ -251,14 +261,6 @@ st.markdown("""
 <div class="ae-header">
     <p class="ae-eyebrow">Albireo Energy</p>
     <h1 class="ae-title">Sales Rep Sourcing</h1>
-    <div class="ae-chips">
-        <span class="ae-chip">Building Automation</span>
-        <span class="ae-chip">HVAC &amp; Heating</span>
-        <span class="ae-chip">Power Systems</span>
-        <span class="ae-chip">Data Centers</span>
-        <span class="ae-chip">PLC &amp; Controls</span>
-        <span class="ae-chip">North Texas</span>
-    </div>
 </div>
 """, unsafe_allow_html=True)
 
@@ -278,7 +280,11 @@ with col2:
         size = st.slider("Number of profiles to pull", 10, 200, 25, step=5, label_visibility="collapsed")
 
 st.write("")
-if st.button("🔎  Run Sourcing", type="primary"):
+bcol = st.columns([2, 3, 2])
+with bcol[1]:
+    clicked = st.button("🔎  Run Sourcing", type="primary")
+
+if clicked:
     if not location:
         st.warning("Please choose or enter a location.")
         st.stop()
@@ -309,6 +315,13 @@ if st.button("🔎  Run Sourcing", type="primary"):
                            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
     except Exception as e:
         st.error(f"Something went wrong talking to Apify: {e}")
+else:
+    st.markdown(
+        '<div class="ae-empty">'
+        '<div class="big">🔍</div>'
+        '<div class="t">Your sourced reps will appear here</div>'
+        '<div class="s">Pick a location and size above, then run a search to build your list.</div>'
+        '</div>', unsafe_allow_html=True)
 
 st.markdown('<div class="ae-footer">Albireo Energy · Internal sourcing tool · Powered by LinkedIn public data via Apify</div>',
             unsafe_allow_html=True)
