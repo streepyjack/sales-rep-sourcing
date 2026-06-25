@@ -288,7 +288,7 @@ with col2:
 st.write("")
 bcol = st.columns([1, 6, 1])
 with bcol[1]:
-    clicked = st.button("🔎  Run Sourcing", type="primary")
+    clicked = st.button("🔎  Run Sourcing", type="primary", use_container_width=True)
 
 if clicked:
     if not location:
