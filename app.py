@@ -255,17 +255,66 @@ def _gs_book():
         info, scopes=["https://www.googleapis.com/auth/spreadsheets"])
     return gspread.authorize(creds).open_by_key(st.secrets["MASTER_SHEET_ID"])
 
+# ---- cosmetic formatting for the Google Sheet tabs (best-effort) ----
+_NAVY_RGB = {"red": 0.055, "green": 0.176, "blue": 0.322}  # #0E2D52
+_COLW = {
+    'Date Added': 95, 'Search Location': 135, 'First Name': 95, 'Last Name': 100,
+    'Current Title': 190, 'Current Company': 165, 'Vertical Match': 165, 'Headline': 290,
+    'Location': 175, 'Tenure': 95, 'Open To Work': 95, 'Email': 220, 'Previous Roles': 320,
+    'Top Skills': 200, 'LinkedIn URL': 240, 'Company LinkedIn': 240, 'Connections': 100,
+    'Summary': 380, 'Timestamp': 135, 'Requested': 95, 'Found': 80, 'New': 75, 'Dupes': 80,
+}
+
+def _format_worksheet(ws, headers):
+    """Frozen bold header, sane column widths, zebra rows. Cosmetic only —
+    each piece is best-effort so styling can never break the app."""
+    last = get_column_letter(len(headers))
+    try:
+        ws.freeze(rows=1)
+        ws.format(f"A1:{last}1", {
+            "backgroundColor": _NAVY_RGB, "verticalAlignment": "MIDDLE",
+            "textFormat": {"foregroundColor": {"red": 1, "green": 1, "blue": 1},
+                           "bold": True, "fontSize": 10}})
+    except Exception:
+        pass
+    try:
+        ws.spreadsheet.batch_update({"requests": [
+            {"updateDimensionProperties": {
+                "range": {"sheetId": ws.id, "dimension": "COLUMNS",
+                          "startIndex": i, "endIndex": i + 1},
+                "properties": {"pixelSize": _COLW.get(h, 130)}, "fields": "pixelSize"}}
+            for i, h in enumerate(headers)]})
+    except Exception:
+        pass
+    try:  # alternating row shading; ignored if a band already exists
+        ws.spreadsheet.batch_update({"requests": [{"addBanding": {"bandedRange": {
+            "range": {"sheetId": ws.id, "startRowIndex": 0,
+                      "startColumnIndex": 0, "endColumnIndex": len(headers)},
+            "rowProperties": {"headerColor": _NAVY_RGB,
+                              "firstBandColor": {"red": 1, "green": 1, "blue": 1},
+                              "secondBandColor": {"red": 0.949, "green": 0.965, "blue": 0.969}}}}}]})
+    except Exception:
+        pass
+
+def _maybe_format(ws, title, headers, force=False):
+    done = st.session_state.setdefault("_ws_formatted", set())
+    if force or title not in done:
+        _format_worksheet(ws, headers)
+        done.add(title)
+
 def _ws(title, headers):
     import gspread
     sh = _gs_book()
+    created = False
     try:
         ws = sh.worksheet(title)
     except gspread.WorksheetNotFound:
         ws = sh.add_worksheet(title=title, rows=2000, cols=len(headers))
         ws.append_row(headers, value_input_option="USER_ENTERED")
-        return ws
+        created = True
     if not ws.row_values(1):
         ws.append_row(headers, value_input_option="USER_ENTERED")
+    _maybe_format(ws, title, headers, force=created)
     return ws
 
 def load_master():
