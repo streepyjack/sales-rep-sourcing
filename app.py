@@ -798,8 +798,9 @@ with tab_master:
                     unsafe_allow_html=True)
         st.dataframe(mdf, use_container_width=True, hide_index=True)
         stamp = datetime.date.today().isoformat()
+        excel_cols = [c for c in order if c != 'Search Location']  # omit from the Excel
         st.download_button("⬇ Download full master (Excel)",
-                           build_excel_bytes(mdf.to_dict('records'), cols=order),
+                           build_excel_bytes(mdf.to_dict('records'), cols=excel_cols),
                            file_name=f"sales_reps_master_{stamp}.xlsx",
                            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
                            key="dl_master")
