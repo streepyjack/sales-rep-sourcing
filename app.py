@@ -235,17 +235,24 @@ def _norm_url(u):
 
 def gs_configured():
     try:
-        return "gcp_service_account" in st.secrets and "MASTER_SHEET_ID" in st.secrets
+        has_creds = ("gcp_service_account_json" in st.secrets
+                     or "gcp_service_account" in st.secrets)
+        return has_creds and "MASTER_SHEET_ID" in st.secrets
     except Exception:
         return False
 
 @st.cache_resource(show_spinner=False)
 def _gs_book():
-    import gspread
+    import json, gspread
     from google.oauth2.service_account import Credentials
+    # Accept either the whole service-account JSON pasted as one string
+    # (easiest), or a classic [gcp_service_account] TOML table.
+    if "gcp_service_account_json" in st.secrets:
+        info = json.loads(st.secrets["gcp_service_account_json"])
+    else:
+        info = dict(st.secrets["gcp_service_account"])
     creds = Credentials.from_service_account_info(
-        dict(st.secrets["gcp_service_account"]),
-        scopes=["https://www.googleapis.com/auth/spreadsheets"])
+        info, scopes=["https://www.googleapis.com/auth/spreadsheets"])
     return gspread.authorize(creds).open_by_key(st.secrets["MASTER_SHEET_ID"])
 
 def _ws(title, headers):
