@@ -13,8 +13,21 @@ from openpyxl.utils import get_column_letter
 
 # ---- config (token + task come from Streamlit secrets) ----
 TASK_ID = st.secrets.get("TASK_ID", "natural_viburnum~north-texas-sales-reps-a")
-LOCATION_PRESETS = ["Dallas-Fort Worth", "Dallas", "Fort Worth", "Austin",
-                    "Houston", "San Antonio", "Texas"]
+# Dropdown options. Texas metros first (primary sourcing area), then every
+# Albireo Energy office location from the global footprint (22 U.S. + 4 Europe).
+LOCATION_PRESETS = [
+    # Texas metros
+    "Dallas-Fort Worth", "Dallas", "Fort Worth", "Austin", "Houston", "San Antonio", "Texas",
+    # Albireo U.S. offices
+    "Redmond, WA", "Vancouver, WA", "Anaheim, CA", "Poway, CA", "Tempe, AZ", "Tucson, AZ",
+    "Salt Lake City, UT", "Denver, CO", "Omaha, NE", "Huntsville, AL", "Hoover, AL",
+    "Montgomery, AL", "Tampa, FL", "Fort Lauderdale, FL", "Miami, FL", "Moosic, PA",
+    "Sterling, VA", "New Castle, DE", "Gambrills, MD", "Edison, NJ", "New York City, NY",
+    "Norwood, MA", "Chelmsford, MA",
+    # Albireo Europe offices
+    "London, United Kingdom", "Westerham, United Kingdom", "Scotland, United Kingdom",
+    "Midlands, United Kingdom",
+]
 
 # Fixed search configuration (your verticals). Location + maxItems are set per run
 # from the UI below; everything else stays locked so targeting never drifts.
