@@ -3,7 +3,7 @@ North Texas Sales Rep Sourcing — web app
 Run-and-download tool. Users pick a location and size; verticals are fixed
 (baked into the Apify task). Deploys free to Streamlit Community Cloud.
 """
-import io, datetime
+import io, datetime, re
 import pandas as pd
 import streamlit as st
 from apify_client import ApifyClient
@@ -43,6 +43,30 @@ BASE_INPUT = {
     "recentlyChangedJobs": False,
     "recentlyPostedOnLinkedIn": False,
 }
+
+# ===================== Fit Score weights (tune here) =====================
+# Priority order: job-title match (highest) > vertical > industry > the rest.
+# A CURRENT-title match is weighted higher than a FORMER-title match.
+# Location is scored RELATIVE to the run's target location (see fit_score);
+# it's skipped entirely when the run has no location context.
+FIT_W_TITLE_CURRENT = 50   # current job title vs the run's target titles (highest)
+FIT_W_TITLE_FORMER  = 25   # former/past job titles (below current)
+FIT_W_VERTICAL      = 20   # building automation / HVAC / controls / energy
+FIT_W_INDUSTRY      = 12   # industry match
+FIT_W_TENURE        =  6   # tenure (lower, equal-weight bucket)
+FIT_W_SENIORITY     =  6   # seniority signal (lower, equal-weight bucket)
+FIT_W_LOCATION      = 15   # proximity to the run's target location (relative)
+
+# Keywords used by the industry / seniority factors and title normalization.
+FIT_INDUSTRY_KEYWORDS = ['building automation', 'hvac', 'controls', 'control system',
+    'energy', 'power', 'electrical', 'industrial automation', 'data center', 'mechanical',
+    'facilities', 'building', 'automation', 'utilities', 'renewable']
+FIT_SENIORITY_KEYWORDS = ['senior', 'lead', 'principal', 'manager', 'director', 'vice president',
+    'head', 'chief', 'territory', 'regional', 'national', 'vp']
+_TITLE_SYNONYMS = {'sr': 'senior', 'jr': 'junior', 'vp': 'vice president', 'svp': 'senior vice president',
+    'ae': 'account executive', 'bd': 'business development', 'bdr': 'business development',
+    'mgr': 'manager', 'exec': 'executive', 'rep': 'representative', 'eng': 'engineer',
+    'biz': 'business', 'dev': 'development'}
 
 # ============ data helpers (same logic as the local pipeline) ============
 def flatten(obj, prefix=''):
@@ -134,9 +158,154 @@ def email(d):
             return e
     return ''
 
-COLUMNS = ['First Name','Last Name','Current Title','Current Company','Vertical Match','Headline',
-           'Location','Tenure','Open To Work','Email','Previous Roles','Top Skills',
-           'LinkedIn URL','Company LinkedIn','Connections','Summary']
+# ============================ Fit Score ============================
+def _tokens(s):
+    """Lower-cased word tokens with a few title abbreviations expanded."""
+    s = re.sub(r'[^a-z0-9 ]', ' ', (s or '').lower())
+    out = []
+    for t in s.split():
+        out.extend(_TITLE_SYNONYMS.get(t, t).split())
+    return set(out)
+
+def _title_match_fraction(title, targets):
+    """Fuzzy/partial match of one title against the target title list -> 0..1.
+    Full credit when every word of a target title appears in the candidate
+    title (so 'Sr. Account Executive' fully matches 'Account Executive');
+    partial credit for partial word overlap."""
+    toks = _tokens(title)
+    if not toks:
+        return 0.0
+    best = 0.0
+    for tgt in targets:
+        tt = _tokens(tgt)
+        if not tt:
+            continue
+        if tt <= toks:
+            return 1.0
+        best = max(best, len(tt & toks) / len(tt))
+    return best
+
+def _former_titles(d):
+    out = []
+    for i in range(25):
+        p = val(d, f'experience/{i}/position')
+        if p:
+            out.append(p)
+    for i in range(1, 6):  # any current positions beyond the primary one
+        p = val(d, f'currentPosition/{i}/position')
+        if p:
+            out.append(p)
+    return out
+
+def _vertical_fraction(vertical):
+    tags = [t for t in (vertical or '').split(',') if t.strip() and t.strip() != '—']
+    if not tags:
+        return 0.0
+    return 0.7 if len(tags) == 1 else 1.0
+
+def _industry_text(d):
+    for k in ['currentPosition/0/companyIndustry', 'currentPosition/0/industry',
+              'company/industry', 'companyIndustry', 'industry', 'industryName', 'occupation']:
+        t = val(d, k)
+        if t:
+            return t.lower()
+    return ''
+
+def _industry_fraction(d):
+    t = _industry_text(d)
+    if not t:
+        return 0.0
+    return 1.0 if any(k in t for k in FIT_INDUSTRY_KEYWORDS) else 0.25
+
+def _years_from_duration(s):
+    s = (s or '').lower()
+    yrs = 0.0
+    m = re.search(r'(\d+)\s*(?:yr|year)', s)
+    if m:
+        yrs += int(m.group(1))
+    m = re.search(r'(\d+)\s*(?:mo|month)', s)
+    if m:
+        yrs += int(m.group(1)) / 12.0
+    return yrs
+
+def _tenure_fraction(tenure):
+    y = _years_from_duration(tenure)
+    if y <= 0:
+        return 0.0
+    if y >= 3:
+        return 1.0
+    return 0.7 if y >= 1.5 else 0.4
+
+def _seniority_fraction(title):
+    t = (title or '').lower()
+    return 1.0 if any(k in t for k in FIT_SENIORITY_KEYWORDS) else 0.0
+
+# Location scoring is relative to the run's target location (no hardcoded city).
+_STATE_ABBR = {'al','ak','az','ar','ca','co','ct','de','fl','ga','hi','id','il','in','ia','ks',
+    'ky','la','me','md','ma','mi','mn','ms','mo','mt','ne','nv','nh','nj','nm','ny','nc','nd',
+    'oh','ok','or','pa','ri','sc','sd','tn','tx','ut','vt','va','wa','wv','wi','wy'}
+_STATE_NAME_ABBR = {'alabama':'al','alaska':'ak','arizona':'az','arkansas':'ar','california':'ca',
+    'colorado':'co','connecticut':'ct','delaware':'de','florida':'fl','georgia':'ga','hawaii':'hi',
+    'idaho':'id','illinois':'il','indiana':'in','iowa':'ia','kansas':'ks','kentucky':'ky',
+    'louisiana':'la','maine':'me','maryland':'md','massachusetts':'ma','michigan':'mi',
+    'minnesota':'mn','mississippi':'ms','missouri':'mo','montana':'mt','nebraska':'ne',
+    'nevada':'nv','ohio':'oh','oklahoma':'ok','oregon':'or','pennsylvania':'pa','tennessee':'tn',
+    'texas':'tx','utah':'ut','vermont':'vt','virginia':'va','washington':'wa','wisconsin':'wi',
+    'wyoming':'wy'}
+_LOC_STOP = {'area','greater','metro','metropolitan','city','of','the','region','county'}
+
+def _loc_tokens(s):
+    s = re.sub(r'[^a-z0-9 ]', ' ', (s or '').lower())
+    out = []
+    for t in s.split():
+        if not t or t in _LOC_STOP:
+            continue
+        out.append(_STATE_NAME_ABBR.get(t, t))  # normalize full state names -> abbr
+    return out
+
+def _location_fraction(cand_loc, target_loc):
+    """Higher when the candidate is in/near the run's target location.
+    Returns None when there's no location context (so it's left out of the
+    score rather than penalizing anyone)."""
+    if not (target_loc or '').strip():
+        return None
+    cand = set(_loc_tokens(cand_loc))
+    if not cand:
+        return 0.0
+    tgt = _loc_tokens(target_loc)
+    cities = [t for t in tgt if t not in _STATE_ABBR]
+    states = [t for t in tgt if t in _STATE_ABBR]
+    if cities:
+        if any(c in cand for c in cities):
+            return 1.0                      # same city / metro / region
+        if any(s in cand for s in states):
+            return 0.5                      # same state -> "near"
+        return 0.0
+    # state-only target (e.g. "Texas") — being in that state is a full match
+    return 1.0 if any(s in cand for s in states) else 0.0
+
+def fit_score(d, rec, target_titles, target_location):
+    """0–100 fit score; normalized over whichever factors apply this run."""
+    targets = [t for t in (target_titles or []) if t]
+    parts = [
+        (FIT_W_TITLE_CURRENT, _title_match_fraction(rec.get('Current Title', ''), targets)),
+        (FIT_W_TITLE_FORMER,  max((_title_match_fraction(t, targets)
+                                   for t in _former_titles(d)), default=0.0)),
+        (FIT_W_VERTICAL,      _vertical_fraction(rec.get('Vertical Match', ''))),
+        (FIT_W_INDUSTRY,      _industry_fraction(d)),
+        (FIT_W_TENURE,        _tenure_fraction(rec.get('Tenure', ''))),
+        (FIT_W_SENIORITY,     _seniority_fraction(rec.get('Current Title', ''))),
+    ]
+    loc = _location_fraction(rec.get('Location', ''), target_location)
+    if loc is not None:
+        parts.append((FIT_W_LOCATION, loc))
+    total = sum(w for w, _ in parts) or 1
+    return round(sum(w * f for w, f in parts) / total * 100)
+
+# Display columns: Fit Score first, then Location moved to right after Current Title.
+COLUMNS = ['Fit Score','First Name','Last Name','Current Title','Location','Current Company',
+           'Vertical Match','Headline','Tenure','Open To Work','Email','Previous Roles',
+           'Top Skills','LinkedIn URL','Company LinkedIn','Connections','Summary']
 
 def condense(d):
     otw = val(d,'openToWork').lower()
@@ -196,15 +365,15 @@ def build_excel_bytes(rows, cols=COLUMNS, summary=None):
     for ri, row in enumerate(rows, start=2):
         for ci, h in enumerate(cols, 1):
             cell = ws.cell(ri, ci, row.get(h, '')); cell.border = bd
-            cell.alignment = Alignment(vertical='top', horizontal=('right' if h=='Connections' else 'left'), wrap_text=(h in wrap))
+            cell.alignment = Alignment(vertical='top', horizontal=('right' if h in ('Connections','Fit Score') else 'left'), wrap_text=(h in wrap))
             if h in links and cell.value:
                 cell.hyperlink = cell.value; cell.font = lf
             else:
                 cell.font = base
             if ri % 2 == 0:
                 cell.fill = band
-    W = {'Date Added':13,'Search Location':18,'First Name':12,'Last Name':13,'Current Title':26,
-         'Current Company':22,'Vertical Match':22,
+    W = {'Fit Score':10,'Date Added':13,'Search Location':18,'First Name':12,'Last Name':13,
+         'Current Title':26,'Current Company':22,'Vertical Match':22,
          'Headline':38,'Location':24,'Tenure':12,'Open To Work':11,'Email':30,'Previous Roles':46,
          'Top Skills':28,'LinkedIn URL':34,'Company LinkedIn':34,'Connections':12,'Summary':55}
     for ci, h in enumerate(cols, 1):
@@ -224,7 +393,8 @@ def _dsid(r):
 # so new-vs-duplicate counts work across runs and days. If the Google Sheet secrets
 # aren't configured yet, everything falls back to in-session memory so the app still
 # runs — see SETUP_GOOGLE_SHEETS.md to connect a sheet.
-MASTER_HEADERS = ["Date Added", "Search Location"] + COLUMNS
+# Master sheet order: Date Added, then Fit Score (2nd), then Search Location, then the rest.
+MASTER_HEADERS = ["Date Added", "Fit Score", "Search Location"] + [c for c in COLUMNS if c != "Fit Score"]
 SEARCH_HEADERS = ["Timestamp", "Location", "Requested", "Found", "New", "Dupes"]
 
 def _norm_url(u):
@@ -258,7 +428,7 @@ def _gs_book():
 # ---- cosmetic formatting for the Google Sheet tabs (best-effort) ----
 _NAVY_RGB = {"red": 0.055, "green": 0.176, "blue": 0.322}  # #0E2D52
 _COLW = {
-    'Date Added': 95, 'Search Location': 135, 'First Name': 95, 'Last Name': 100,
+    'Fit Score': 75, 'Date Added': 95, 'Search Location': 135, 'First Name': 95, 'Last Name': 100,
     'Current Title': 190, 'Current Company': 165, 'Vertical Match': 165, 'Headline': 290,
     'Location': 175, 'Tenure': 95, 'Open To Work': 95, 'Email': 220, 'Previous Roles': 320,
     'Top Skills': 200, 'LinkedIn URL': 240, 'Company LinkedIn': 240, 'Connections': 100,
@@ -268,7 +438,9 @@ _COLW = {
 def _format_worksheet(ws, headers):
     """Frozen bold header, sane column widths, zebra rows. Cosmetic only —
     each piece is best-effort so styling can never break the app."""
-    last = get_column_letter(len(headers))
+    header = ws.row_values(1) or list(headers)  # style the sheet's actual columns
+    ncols = len(header)
+    last = get_column_letter(ncols)
     try:
         ws.freeze(rows=1)
         ws.format(f"A1:{last}1", {
@@ -283,13 +455,13 @@ def _format_worksheet(ws, headers):
                 "range": {"sheetId": ws.id, "dimension": "COLUMNS",
                           "startIndex": i, "endIndex": i + 1},
                 "properties": {"pixelSize": _COLW.get(h, 130)}, "fields": "pixelSize"}}
-            for i, h in enumerate(headers)]})
+            for i, h in enumerate(header)]})
     except Exception:
         pass
     try:  # alternating row shading; ignored if a band already exists
         ws.spreadsheet.batch_update({"requests": [{"addBanding": {"bandedRange": {
             "range": {"sheetId": ws.id, "startRowIndex": 0,
-                      "startColumnIndex": 0, "endColumnIndex": len(headers)},
+                      "startColumnIndex": 0, "endColumnIndex": ncols},
             "rowProperties": {"headerColor": _NAVY_RGB,
                               "firstBandColor": {"red": 1, "green": 1, "blue": 1},
                               "secondBandColor": {"red": 0.949, "green": 0.965, "blue": 0.969}}}}}]})
@@ -337,12 +509,27 @@ def load_searches():
             return []
     return st.session_state.setdefault("searches", [])
 
+def _ensure_columns(ws, needed):
+    """Make sure every needed column exists in the sheet's header, appending any
+    new ones (e.g. 'Fit Score') at the end so existing rows stay aligned.
+    Returns the sheet's actual header order to write rows against."""
+    header = ws.row_values(1)
+    if not header:
+        ws.update(range_name="A1", values=[list(needed)])
+        return list(needed)
+    missing = [h for h in needed if h not in header]
+    if missing:
+        header = header + missing
+        ws.update(range_name="A1", values=[header])
+    return header
+
 def save_master(rows):
     if not rows:
         return
     if gs_configured():
         ws = _ws("Master", MASTER_HEADERS)
-        ws.append_rows([[r.get(h, "") for h in MASTER_HEADERS] for r in rows],
+        header = _ensure_columns(ws, MASTER_HEADERS)   # adds Fit Score column if absent
+        ws.append_rows([[r.get(h, "") for h in header] for r in rows],
                        value_input_option="USER_ENTERED")
     else:
         st.session_state.setdefault("master", []).extend(rows)
@@ -502,13 +689,20 @@ with tab_search:
                 run = client.task(TASK_ID).call(task_input=run_input)
                 ds = _dsid(run)
                 items = [flatten(i) for i in client.dataset(ds).iterate_items()]
-            recs = [condense(d) for d in items if val(d, 'linkedinUrl')]
+            recs = []
+            for d in items:
+                if not val(d, 'linkedinUrl'):
+                    continue
+                rec = condense(d)
+                # Fit Score is scored against this run's target titles + location.
+                rec['Fit Score'] = fit_score(d, rec, TITLES, location)
+                recs.append(rec)
             if not recs:
                 st.error("No results came back. This usually means the Apify free-tier run limit was hit "
                          "or the location returned no matches. Check the Apify console.")
                 st.stop()
-            # on-target first
-            recs.sort(key=lambda r: (r['Vertical Match'] == '—', r['Current Company']))
+            # highest Fit Score first (ties broken by company)
+            recs.sort(key=lambda r: (-r['Fit Score'], r['Current Company']))
 
             # ---- dedup against the running master list ----
             master = load_master()
@@ -597,12 +791,15 @@ with tab_master:
         mdf = pd.DataFrame(master)
         order = [c for c in MASTER_HEADERS if c in mdf.columns]
         mdf = mdf[order]
+        if 'Fit Score' in mdf.columns:  # highest Fit Score first
+            mdf = (mdf.assign(_fs=pd.to_numeric(mdf['Fit Score'], errors='coerce').fillna(-1))
+                      .sort_values('_fs', ascending=False).drop(columns='_fs').reset_index(drop=True))
         st.markdown(f'<div class="ae-result">📒 {len(mdf)} unique reps in the master list</div>',
                     unsafe_allow_html=True)
         st.dataframe(mdf, use_container_width=True, hide_index=True)
         stamp = datetime.date.today().isoformat()
         st.download_button("⬇ Download full master (Excel)",
-                           build_excel_bytes(master, cols=order),
+                           build_excel_bytes(mdf.to_dict('records'), cols=order),
                            file_name=f"sales_reps_master_{stamp}.xlsx",
                            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
                            key="dl_master")
