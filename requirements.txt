@@ -2,3 +2,5 @@ streamlit
 apify-client
 openpyxl
 pandas
+gspread
+google-auth

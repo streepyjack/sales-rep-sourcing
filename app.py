@@ -141,20 +141,47 @@ def condense(d):
         'Connections': val(d,'connectionsCount'), 'Summary': val(d,'about'),
     }
 
-def build_excel_bytes(rows):
-    wb = Workbook(); ws = wb.active; ws.title = 'Sales Reps'
+def _excel_summary_sheet(ws, summary):
+    """Write a small run-summary block (counts) onto its own sheet."""
+    title_fill = PatternFill('solid', fgColor='1F4E5F')
+    head = Font(name='Calibri', bold=True, color='FFFFFF', size=13)
+    label = Font(name='Calibri', bold=True, size=11); base = Font(name='Calibri', size=11)
+    ws['A1'] = 'Run Summary'; ws['A1'].font = head; ws['A1'].fill = title_fill
+    ws['B1'].fill = title_fill
+    rows = [
+        ('Search location', summary.get('Location', '')),
+        ('Date', summary.get('Timestamp', '')),
+        ('Profiles requested', summary.get('Requested', '')),
+        ('Profiles found', summary.get('Found', '')),
+        ('New (added to master)', summary.get('New', '')),
+        ('Duplicates (already on file)', summary.get('Dupes', '')),
+        ('Master list total', summary.get('MasterTotal', '')),
+    ]
+    for i, (k, v) in enumerate(rows, start=3):
+        ws.cell(i, 1, k).font = label
+        ws.cell(i, 2, v).font = base
+    ws.column_dimensions['A'].width = 30; ws.column_dimensions['B'].width = 28
+    ws.sheet_view.showGridLines = False
+
+def build_excel_bytes(rows, cols=COLUMNS, summary=None):
+    wb = Workbook()
+    if summary is not None:
+        ws_sum = wb.active; ws_sum.title = 'Summary'; _excel_summary_sheet(ws_sum, summary)
+        ws = wb.create_sheet('Sales Reps')
+    else:
+        ws = wb.active; ws.title = 'Sales Reps'
     hf = PatternFill('solid', fgColor='1F4E5F'); hfont = Font(name='Calibri', bold=True, color='FFFFFF', size=11)
     band = PatternFill('solid', fgColor='F2F6F7'); thin = Side(style='thin', color='E2E2E2')
     bd = Border(left=thin, right=thin, top=thin, bottom=thin)
     lf = Font(name='Calibri', color='0563C1', underline='single', size=11); base = Font(name='Calibri', size=11)
     wrap = {'Current Title','Vertical Match','Headline','Previous Roles','Top Skills','Location'}
     links = {'LinkedIn URL','Company LinkedIn'}
-    ws.append(COLUMNS)
-    for ci, h in enumerate(COLUMNS, 1):
+    ws.append(cols)
+    for ci, h in enumerate(cols, 1):
         c = ws.cell(1, ci); c.fill = hf; c.font = hfont; c.border = bd
         c.alignment = Alignment(vertical='center', wrap_text=True)
     for ri, row in enumerate(rows, start=2):
-        for ci, h in enumerate(COLUMNS, 1):
+        for ci, h in enumerate(cols, 1):
             cell = ws.cell(ri, ci, row.get(h, '')); cell.border = bd
             cell.alignment = Alignment(vertical='top', horizontal=('right' if h=='Connections' else 'left'), wrap_text=(h in wrap))
             if h in links and cell.value:
@@ -163,12 +190,13 @@ def build_excel_bytes(rows):
                 cell.font = base
             if ri % 2 == 0:
                 cell.fill = band
-    W = {'First Name':12,'Last Name':13,'Current Title':26,'Current Company':22,'Vertical Match':22,
+    W = {'Date Added':13,'Search Location':18,'First Name':12,'Last Name':13,'Current Title':26,
+         'Current Company':22,'Vertical Match':22,
          'Headline':38,'Location':24,'Tenure':12,'Open To Work':11,'Email':30,'Previous Roles':46,
          'Top Skills':28,'LinkedIn URL':34,'Company LinkedIn':34,'Connections':12,'Summary':55}
-    for ci, h in enumerate(COLUMNS, 1):
+    for ci, h in enumerate(cols, 1):
         ws.column_dimensions[get_column_letter(ci)].width = W.get(h, 16)
-    ws.freeze_panes = 'C2'; ws.auto_filter.ref = f"A1:{get_column_letter(len(COLUMNS))}1"
+    ws.freeze_panes = 'A2'; ws.auto_filter.ref = f"A1:{get_column_letter(len(cols))}1"
     ws.sheet_view.showGridLines = False
     buf = io.BytesIO(); wb.save(buf); buf.seek(0)
     return buf.getvalue()
@@ -177,6 +205,86 @@ def _dsid(r):
     if isinstance(r, dict):
         return r.get("defaultDatasetId") or r.get("default_dataset_id")
     return getattr(r, "default_dataset_id", None) or getattr(r, "defaultDatasetId", None)
+
+# ============ persistence: Google Sheets master list + search history ============
+# Keeps a running master list (deduped by LinkedIn URL) and a log of every search,
+# so new-vs-duplicate counts work across runs and days. If the Google Sheet secrets
+# aren't configured yet, everything falls back to in-session memory so the app still
+# runs — see SETUP_GOOGLE_SHEETS.md to connect a sheet.
+MASTER_HEADERS = ["Date Added", "Search Location"] + COLUMNS
+SEARCH_HEADERS = ["Timestamp", "Location", "Requested", "Found", "New", "Dupes"]
+
+def _norm_url(u):
+    u = (u or "").strip().lower()
+    for p in ("https://", "http://", "www."):
+        u = u.replace(p, "")
+    return u.rstrip("/")
+
+def gs_configured():
+    try:
+        return "gcp_service_account" in st.secrets and "MASTER_SHEET_ID" in st.secrets
+    except Exception:
+        return False
+
+@st.cache_resource(show_spinner=False)
+def _gs_book():
+    import gspread
+    from google.oauth2.service_account import Credentials
+    creds = Credentials.from_service_account_info(
+        dict(st.secrets["gcp_service_account"]),
+        scopes=["https://www.googleapis.com/auth/spreadsheets"])
+    return gspread.authorize(creds).open_by_key(st.secrets["MASTER_SHEET_ID"])
+
+def _ws(title, headers):
+    import gspread
+    sh = _gs_book()
+    try:
+        ws = sh.worksheet(title)
+    except gspread.WorksheetNotFound:
+        ws = sh.add_worksheet(title=title, rows=2000, cols=len(headers))
+        ws.append_row(headers, value_input_option="USER_ENTERED")
+        return ws
+    if not ws.row_values(1):
+        ws.append_row(headers, value_input_option="USER_ENTERED")
+    return ws
+
+def load_master():
+    """Return list of dicts (oldest first) for every unique rep saved so far."""
+    if gs_configured():
+        try:
+            return _ws("Master", MASTER_HEADERS).get_all_records()
+        except Exception as e:
+            st.warning(f"Couldn't read the master sheet: {e}")
+            return []
+    return st.session_state.setdefault("master", [])
+
+def load_searches():
+    """Return list of dicts (oldest first) for every search run so far."""
+    if gs_configured():
+        try:
+            return _ws("Searches", SEARCH_HEADERS).get_all_records()
+        except Exception as e:
+            st.warning(f"Couldn't read search history: {e}")
+            return []
+    return st.session_state.setdefault("searches", [])
+
+def save_master(rows):
+    if not rows:
+        return
+    if gs_configured():
+        ws = _ws("Master", MASTER_HEADERS)
+        ws.append_rows([[r.get(h, "") for h in MASTER_HEADERS] for r in rows],
+                       value_input_option="USER_ENTERED")
+    else:
+        st.session_state.setdefault("master", []).extend(rows)
+
+def save_search(rec):
+    if gs_configured():
+        ws = _ws("Searches", SEARCH_HEADERS)
+        ws.append_row([rec.get(h, "") for h in SEARCH_HEADERS],
+                      value_input_option="USER_ENTERED")
+    else:
+        st.session_state.setdefault("searches", []).append(rec)
 
 # ============================ UI ============================
 st.set_page_config(page_title="Albireo Energy · Sales Rep Sourcing", page_icon="🎯", layout="wide")
@@ -257,6 +365,18 @@ div[data-testid="stVerticalBlockBorderWrapper"] > div {{ padding: 18px 22px; min
     padding: 13px 20px; border-radius: 12px; margin: 8px 0 16px 0;
     box-shadow: 0 4px 14px rgba(31,111,178,0.25); }}
 
+/* top tabs */
+div[data-testid="stTabs"] div[role="tablist"] {{
+    gap: 4px; border-bottom: 2px solid {BORDER}; margin-bottom: 18px; }}
+div[data-testid="stTabs"] button[role="tab"] {{
+    padding: 10px 22px; border-radius: 10px 10px 0 0; }}
+div[data-testid="stTabs"] button[role="tab"] p {{
+    font-size: 16px; font-weight: 700; color: #66788c; }}
+div[data-testid="stTabs"] button[role="tab"][aria-selected="true"] {{
+    background: #fff; }}
+div[data-testid="stTabs"] button[role="tab"][aria-selected="true"] p {{
+    color: {NAVY}; font-weight: 800; }}
+
 /* footer */
 .ae-footer {{ text-align: center; color: #8a98a8; font-size: 12px;
     margin-top: 36px; padding-top: 18px; border-top: 1px solid {BORDER}; }}
@@ -270,64 +390,153 @@ st.markdown("""
 </div>
 """, unsafe_allow_html=True)
 
-col1, col2 = st.columns(2, gap="large")
-with col1:
-    with st.container(border=True):
-        st.markdown('<p class="ae-label">📍 Location</p>', unsafe_allow_html=True)
-        st.markdown('<p class="ae-help">Where to search for reps</p>', unsafe_allow_html=True)
-        choice = st.selectbox("Location", LOCATION_PRESETS + ["Custom…"], label_visibility="collapsed")
-        location = (st.text_input("Enter a location", label_visibility="collapsed",
-                                  placeholder="Type a city or metro area")
-                    if choice == "Custom…" else choice)
-with col2:
-    with st.container(border=True):
-        st.markdown('<p class="ae-label">🎯 Number of Profiles</p>', unsafe_allow_html=True)
-        st.markdown('<p class="ae-help">How many reps to pull this run</p>', unsafe_allow_html=True)
-        size = st.slider("Number of profiles to pull", 10, 200, 25, step=5, label_visibility="collapsed")
+tab_search, tab_history, tab_master = st.tabs(
+    ["🔎  New Search", "🕘  Previous Searches", "📒  Master List"])
 
-st.write("")
-bcol = st.columns([1, 6, 1])
-with bcol[1]:
-    clicked = st.button("🔎  Run Sourcing", type="primary", use_container_width=True)
+# ------------------------------- New Search -------------------------------
+with tab_search:
+    col1, col2 = st.columns(2, gap="large")
+    with col1:
+        with st.container(border=True):
+            st.markdown('<p class="ae-label">📍 Location</p>', unsafe_allow_html=True)
+            st.markdown('<p class="ae-help">Where to search for reps</p>', unsafe_allow_html=True)
+            choice = st.selectbox("Location", LOCATION_PRESETS + ["Custom…"], label_visibility="collapsed")
+            location = (st.text_input("Enter a location", label_visibility="collapsed",
+                                      placeholder="Type a city or metro area")
+                        if choice == "Custom…" else choice)
+    with col2:
+        with st.container(border=True):
+            st.markdown('<p class="ae-label">🎯 Number of Profiles</p>', unsafe_allow_html=True)
+            st.markdown('<p class="ae-help">How many reps to pull this run</p>', unsafe_allow_html=True)
+            size = st.slider("Number of profiles to pull", 10, 200, 25, step=5, label_visibility="collapsed")
 
-if clicked:
-    if not location:
-        st.warning("Please choose or enter a location.")
-        st.stop()
-    try:
-        with st.spinner("Searching LinkedIn… this usually takes a minute or two."):
-            client = ApifyClient(st.secrets["APIFY_TOKEN"])
-            # full config sent every run, so verticals/titles/mode can never drift
-            run_input = dict(BASE_INPUT)
-            run_input["locations"] = [location]
-            run_input["maxItems"] = size
-            run = client.task(TASK_ID).call(task_input=run_input)
-            ds = _dsid(run)
-            items = [flatten(i) for i in client.dataset(ds).iterate_items()]
-        recs = [condense(d) for d in items if val(d, 'linkedinUrl')]
-        if not recs:
-            st.error("No results came back. This usually means the Apify free-tier run limit was hit "
-                     "or the location returned no matches. Check the Apify console.")
+    st.write("")
+    bcol = st.columns([1, 6, 1])
+    with bcol[1]:
+        clicked = st.button("🔎  Run Sourcing", type="primary", use_container_width=True)
+
+    if not gs_configured():
+        st.info("⚠️ Google Sheet not connected yet — searches still run, but the master list and "
+                "history won't be saved between sessions. See **SETUP_GOOGLE_SHEETS.md** to connect one.")
+
+    if clicked:
+        if not location:
+            st.warning("Please choose or enter a location.")
             st.stop()
-        # on-target first
-        recs.sort(key=lambda r: (r['Vertical Match'] == '—', r['Current Company']))
-        df = pd.DataFrame(recs, columns=COLUMNS)
-        st.markdown(f'<div class="ae-result">✓ Found {len(df)} reps near {location}</div>',
+        try:
+            with st.spinner("Searching LinkedIn… this usually takes a minute or two."):
+                client = ApifyClient(st.secrets["APIFY_TOKEN"])
+                # full config sent every run, so verticals/titles/mode can never drift
+                run_input = dict(BASE_INPUT)
+                run_input["locations"] = [location]
+                run_input["maxItems"] = size
+                run = client.task(TASK_ID).call(task_input=run_input)
+                ds = _dsid(run)
+                items = [flatten(i) for i in client.dataset(ds).iterate_items()]
+            recs = [condense(d) for d in items if val(d, 'linkedinUrl')]
+            if not recs:
+                st.error("No results came back. This usually means the Apify free-tier run limit was hit "
+                         "or the location returned no matches. Check the Apify console.")
+                st.stop()
+            # on-target first
+            recs.sort(key=lambda r: (r['Vertical Match'] == '—', r['Current Company']))
+
+            # ---- dedup against the running master list ----
+            master = load_master()
+            seen = {_norm_url(m.get('LinkedIn URL', '')) for m in master}
+            new_recs, dupes = [], 0
+            for r in recs:
+                k = _norm_url(r['LinkedIn URL'])
+                if k and k not in seen:
+                    seen.add(k); new_recs.append(r)
+                else:
+                    dupes += 1
+
+            # ---- persist: new reps -> master, this run -> history ----
+            today = datetime.date.today().isoformat()
+            now = datetime.datetime.now().isoformat(timespec='minutes').replace('T', ' ')
+            save_master([{'Date Added': today, 'Search Location': location, **r} for r in new_recs])
+            search_rec = {'Timestamp': now, 'Location': location, 'Requested': size,
+                          'Found': len(recs), 'New': len(new_recs), 'Dupes': dupes}
+            save_search(search_rec)
+            summary = {**search_rec, 'MasterTotal': len(master) + len(new_recs)}
+
+            df = pd.DataFrame(recs, columns=COLUMNS)
+            st.markdown(
+                f'<div class="ae-result">✓ Found {len(df)} reps near {location}'
+                f' &nbsp;·&nbsp; <b>{len(new_recs)} new</b> added to master'
+                f' &nbsp;·&nbsp; {dupes} already on file</div>', unsafe_allow_html=True)
+
+            m1, m2, m3, m4 = st.columns(4)
+            m1.metric("Profiles found", len(df))
+            m2.metric("New", len(new_recs))
+            m3.metric("Duplicates", dupes)
+            m4.metric("Master total", summary['MasterTotal'])
+
+            st.dataframe(df, use_container_width=True, hide_index=True)
+            st.download_button("⬇ Download Excel", build_excel_bytes(recs, summary=summary),
+                               file_name=f"sales_reps_{location.replace(' ','_')}_{today}.xlsx",
+                               mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+        except Exception as e:
+            st.error(f"Something went wrong talking to Apify: {e}")
+    else:
+        st.markdown(
+            '<div class="ae-empty">'
+            '<div class="big">🔍</div>'
+            '<div class="t">Your sourced reps will appear here</div>'
+            '<div class="s">Pick a location and size above, then run a search to build your list.</div>'
+            '</div>', unsafe_allow_html=True)
+
+# ---------------------------- Previous Searches ----------------------------
+with tab_history:
+    st.markdown('<p class="ae-label">🕘 Previous Searches</p>', unsafe_allow_html=True)
+    st.markdown('<p class="ae-help">Every run, newest first — with new vs. duplicate counts.</p>',
+                unsafe_allow_html=True)
+    searches = load_searches()
+    if not searches:
+        st.markdown(
+            '<div class="ae-empty"><div class="big">🕘</div>'
+            '<div class="t">No searches yet</div>'
+            '<div class="s">Run a search and it will be logged here automatically.</div></div>',
+            unsafe_allow_html=True)
+    else:
+        hdf = pd.DataFrame(searches)
+        for c in SEARCH_HEADERS:
+            if c not in hdf.columns:
+                hdf[c] = ''
+        hdf = hdf[SEARCH_HEADERS].iloc[::-1].reset_index(drop=True)  # newest first
+        total_new = pd.to_numeric(hdf['New'], errors='coerce').fillna(0).astype(int).sum()
+        c1, c2, c3 = st.columns(3)
+        c1.metric("Total searches", len(hdf))
+        c2.metric("Profiles added (all time)", int(total_new))
+        c3.metric("Master list size", len(load_master()))
+        st.dataframe(hdf, use_container_width=True, hide_index=True)
+
+# ------------------------------- Master List -------------------------------
+with tab_master:
+    st.markdown('<p class="ae-label">📒 Master List</p>', unsafe_allow_html=True)
+    st.markdown('<p class="ae-help">Every unique rep sourced so far, deduped by LinkedIn URL.</p>',
+                unsafe_allow_html=True)
+    master = load_master()
+    if not master:
+        st.markdown(
+            '<div class="ae-empty"><div class="big">📒</div>'
+            '<div class="t">Master list is empty</div>'
+            '<div class="s">New reps from each search land here automatically.</div></div>',
+            unsafe_allow_html=True)
+    else:
+        mdf = pd.DataFrame(master)
+        order = [c for c in MASTER_HEADERS if c in mdf.columns]
+        mdf = mdf[order]
+        st.markdown(f'<div class="ae-result">📒 {len(mdf)} unique reps in the master list</div>',
                     unsafe_allow_html=True)
-        st.dataframe(df, use_container_width=True, hide_index=True)
+        st.dataframe(mdf, use_container_width=True, hide_index=True)
         stamp = datetime.date.today().isoformat()
-        st.download_button("⬇ Download Excel", build_excel_bytes(recs),
-                           file_name=f"sales_reps_{location.replace(' ','_')}_{stamp}.xlsx",
-                           mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
-    except Exception as e:
-        st.error(f"Something went wrong talking to Apify: {e}")
-else:
-    st.markdown(
-        '<div class="ae-empty">'
-        '<div class="big">🔍</div>'
-        '<div class="t">Your sourced reps will appear here</div>'
-        '<div class="s">Pick a location and size above, then run a search to build your list.</div>'
-        '</div>', unsafe_allow_html=True)
+        st.download_button("⬇ Download full master (Excel)",
+                           build_excel_bytes(master, cols=order),
+                           file_name=f"sales_reps_master_{stamp}.xlsx",
+                           mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                           key="dl_master")
 
 st.markdown('<div class="ae-footer">Albireo Energy · Internal sourcing tool · Powered by LinkedIn public data via Apify</div>',
             unsafe_allow_html=True)
