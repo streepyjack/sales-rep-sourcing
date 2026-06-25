@@ -219,8 +219,9 @@ html, body, .stApp, button, input, textarea, select,
 div.stButton, div[data-testid="stButton"] {{ width: 100% !important; }}
 div.stButton > button, div[data-testid="stButton"] > button {{
     background: linear-gradient(135deg, #FFC62E 0%, {GOLD} 100%);
-    color: {NAVY}; font-size: 23px; font-weight: 800; letter-spacing: .4px;
-    padding: 22px 0; border: none; border-radius: 14px; width: 100% !important;
+    color: {NAVY}; font-size: 24px; font-weight: 800; letter-spacing: .4px;
+    padding: 20px 0; border: none; border-radius: 14px; width: 100% !important;
+    white-space: nowrap; line-height: 1.2;
     box-shadow: 0 8px 22px rgba(253,184,19,0.45); transition: all .15s ease;
 }}
 div.stButton > button:hover, div[data-testid="stButton"] > button:hover {{
@@ -285,7 +286,7 @@ with col2:
         size = st.slider("Number of profiles to pull", 10, 200, 25, step=5, label_visibility="collapsed")
 
 st.write("")
-bcol = st.columns([1, 3, 1])
+bcol = st.columns([1, 6, 1])
 with bcol[1]:
     clicked = st.button("🔎  Run Sourcing", type="primary")
 
