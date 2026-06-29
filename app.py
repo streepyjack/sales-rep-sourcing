@@ -16,6 +16,8 @@ TASK_ID = st.secrets.get("TASK_ID", "natural_viburnum~north-texas-sales-reps-a")
 # Dropdown options. Texas metros first (primary sourcing area), then every
 # Albireo Energy office location from the global footprint (22 U.S. + 4 Europe).
 LOCATION_PRESETS = [
+    # Broad / no specific city
+    "Remote",
     # Texas metros
     "Dallas-Fort Worth", "Dallas", "Fort Worth", "Austin", "Houston", "San Antonio", "Texas",
     # Albireo U.S. offices
@@ -731,6 +733,10 @@ with tab_search:
             st.markdown('<p class="ae-help">How many reps to pull this run</p>', unsafe_allow_html=True)
             size = st.slider("Number of profiles to pull", 10, 200, 25, step=5, label_visibility="collapsed")
 
+    otw_only = st.checkbox('🟢 Only show people flagged "Open to Work"')
+    if str(location).strip().lower() == "remote":
+        st.caption("🌐 Remote = nationwide (United States) search; location won't affect the Fit Score.")
+
     st.write("")
     bcol = st.columns([1, 6, 1])
     with bcol[1]:
@@ -746,6 +752,10 @@ with tab_search:
             st.stop()
         try:
             role = ROLES[role_name]
+            # "Remote" = nationwide search, no city constraint; drop location from scoring.
+            remote = str(location).strip().lower() == "remote"
+            search_location = "United States" if remote else location
+            score_location = "" if remote else location
             with st.spinner(f"Searching LinkedIn for {role_name}… this usually takes a minute or two."):
                 client = ApifyClient(st.secrets["APIFY_TOKEN"])
                 # Target the search with the selected role's job titles + industries.
@@ -753,7 +763,7 @@ with tab_search:
                 run_input["currentJobTitles"] = role["job_titles"]
                 run_input["pastJobTitles"] = role["job_titles"]
                 run_input["industryIds"] = role.get("industry_ids") or BASE_INPUT["industryIds"]
-                run_input["locations"] = [location]
+                run_input["locations"] = [search_location]
                 run_input["maxItems"] = size
                 run = client.task(TASK_ID).call(task_input=run_input)
                 run_status = run.get("status") if isinstance(run, dict) else getattr(run, "status", None)
@@ -768,7 +778,7 @@ with tab_search:
                 comp_name, comp_sig = _competitor_info(d, rec)
                 rec['Competitor'] = comp_name
                 # Fit Score uses the selected role's own criteria + weights.
-                rec['Fit Score'] = role_fit_score(d, rec, role, location, comp_sig)
+                rec['Fit Score'] = role_fit_score(d, rec, role, score_location, comp_sig)
                 recs.append(rec)
             if not recs:
                 st.error(f"No usable profiles came back for **{role_name}** in **{location}**.")
@@ -788,6 +798,14 @@ with tab_search:
                                "too narrow (e.g. a small town with an abbreviated state). Try a larger metro "
                                "(e.g. **Boston** instead of Chelmsford, MA) or a broader role, then refine.")
                 st.stop()
+            # optional: keep only people flagged "Open to Work"
+            if otw_only:
+                found_n = len(recs)
+                recs = [r for r in recs if r.get('Open To Work') == 'Yes']
+                if not recs:
+                    st.warning(f"None of the {found_n} {role_name} found are flagged \"Open to Work\". "
+                               "Uncheck that filter, raise the profile count, or widen the location.")
+                    st.stop()
             # highest Fit Score first (ties broken by company)
             recs.sort(key=lambda r: (-r['Fit Score'], r['Current Company']))
 
@@ -814,8 +832,10 @@ with tab_search:
 
             df = pd.DataFrame(recs, columns=COLUMNS)
             n_comp = sum(1 for r in recs if r.get('Competitor'))
+            where = "remotely (nationwide)" if remote else f"near {location}"
+            otw_tag = " &nbsp;·&nbsp; open to work" if otw_only else ""
             st.markdown(
-                f'<div class="ae-result">✓ Found {len(df)} {role_name} near {location}'
+                f'<div class="ae-result">✓ Found {len(df)} {role_name} {where}{otw_tag}'
                 f' &nbsp;·&nbsp; <b>{len(new_recs)} new</b> added to master'
                 f' &nbsp;·&nbsp; {dupes} already on file'
                 f' &nbsp;·&nbsp; {n_comp} from competitors</div>', unsafe_allow_html=True)
