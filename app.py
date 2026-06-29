@@ -3,7 +3,7 @@ North Texas Sales Rep Sourcing — web app
 Run-and-download tool. Users pick a location and size; verticals are fixed
 (baked into the Apify task). Deploys free to Streamlit Community Cloud.
 """
-import io, datetime, re
+import io, datetime, re, json, os
 import pandas as pd
 import streamlit as st
 from apify_client import ApifyClient
@@ -44,25 +44,39 @@ BASE_INPUT = {
     "recentlyPostedOnLinkedIn": False,
 }
 
-# ===================== Fit Score weights (tune here) =====================
-# Priority order: job-title match (highest) > vertical > industry > the rest.
-# A CURRENT-title match is weighted higher than a FORMER-title match.
-# Location is scored RELATIVE to the run's target location (see fit_score);
-# it's skipped entirely when the run has no location context.
-FIT_W_TITLE_CURRENT = 50   # current job title vs the run's target titles (highest)
-FIT_W_TITLE_FORMER  = 25   # former/past job titles (below current)
-FIT_W_VERTICAL      = 20   # building automation / HVAC / controls / energy
-FIT_W_INDUSTRY      = 12   # industry match
-FIT_W_TENURE        =  6   # tenure (lower, equal-weight bucket)
-FIT_W_SENIORITY     =  6   # seniority signal (lower, equal-weight bucket)
-FIT_W_LOCATION      = 15   # proximity to the run's target location (relative)
+# ===================== Role profiles + Fit Score =====================
+# Roles, their keywords/industries/verticals, and per-role Fit Score weights are
+# generated from AI_Sourcing_Albireo_Energy.xlsx into role_profiles.json (committed
+# alongside this app, so it deploys to Streamlit Cloud and stays easy to tune).
+@st.cache_data(show_spinner=False)
+def load_role_data():
+    with open(os.path.join(os.path.dirname(__file__), "role_profiles.json"), encoding="utf-8") as f:
+        return json.load(f)
 
-# Keywords used by the industry / seniority factors and title normalization.
-FIT_INDUSTRY_KEYWORDS = ['building automation', 'hvac', 'controls', 'control system',
-    'energy', 'power', 'electrical', 'industrial automation', 'data center', 'mechanical',
-    'facilities', 'building', 'automation', 'utilities', 'renewable']
-FIT_SENIORITY_KEYWORDS = ['senior', 'lead', 'principal', 'manager', 'director', 'vice president',
-    'head', 'chief', 'territory', 'regional', 'national', 'vp']
+ROLE_DATA = load_role_data()
+ROLES = {r["role"]: r for r in ROLE_DATA["roles"]}     # role name -> profile
+ROLE_NAMES = [r["role"] for r in ROLE_DATA["roles"]]   # already grouped BAS then PLC
+COMPETITORS = ROLE_DATA["competitors"]                 # category -> [company, ...]
+# Flat list of competitor company names (slashes split) for "competitor experience".
+_COMP_NAMES = []
+for _cat_names in COMPETITORS.values():
+    for _co in _cat_names:
+        for _part in str(_co).split('/'):
+            _p = _part.strip()
+            if len(_p) >= 2:
+                _COMP_NAMES.append(_p)
+
+# Map a role's Fit-Score criterion name to a computable signal. Most role-specific
+# "experience" criteria are captured by the role's skills/terms keyword match.
+def _criterion_signal_key(name):
+    n = (name or '').lower()
+    if 'competitor' in n:                       return 'competitor'
+    if 'geographic' in n or 'location' in n:    return 'location'
+    if 'vertical' in n:                         return 'vertical'
+    if 'industry' in n:                         return 'industry'
+    if 'title' in n:                            return 'title'
+    return 'skills'
+
 _TITLE_SYNONYMS = {'sr': 'senior', 'jr': 'junior', 'vp': 'vice president', 'svp': 'senior vice president',
     'ae': 'account executive', 'bd': 'business development', 'bdr': 'business development',
     'mgr': 'manager', 'exec': 'executive', 'rep': 'representative', 'eng': 'engineer',
@@ -197,12 +211,6 @@ def _former_titles(d):
             out.append(p)
     return out
 
-def _vertical_fraction(vertical):
-    tags = [t for t in (vertical or '').split(',') if t.strip() and t.strip() != '—']
-    if not tags:
-        return 0.0
-    return 0.7 if len(tags) == 1 else 1.0
-
 def _industry_text(d):
     for k in ['currentPosition/0/companyIndustry', 'currentPosition/0/industry',
               'company/industry', 'companyIndustry', 'industry', 'industryName', 'occupation']:
@@ -211,34 +219,61 @@ def _industry_text(d):
             return t.lower()
     return ''
 
-def _industry_fraction(d):
-    t = _industry_text(d)
-    if not t:
-        return 0.0
-    return 1.0 if any(k in t for k in FIT_INDUSTRY_KEYWORDS) else 0.25
+def _cand_blob(d, rec):
+    """Everything searchable about a candidate, lower-cased, for keyword matching."""
+    parts = [rec.get('Headline', ''), rec.get('Current Title', ''), rec.get('Current Company', ''),
+             rec.get('Top Skills', ''), rec.get('Previous Roles', ''), val(d, 'about')]
+    for i in range(25):
+        parts.append(val(d, f'experience/{i}/position'))
+        parts.append(val(d, f'experience/{i}/companyName'))
+    for i in range(60):
+        parts.append(val(d, f'skills/{i}/name'))
+    return ' '.join(p for p in parts if p).lower()
 
-def _years_from_duration(s):
-    s = (s or '').lower()
-    yrs = 0.0
-    m = re.search(r'(\d+)\s*(?:yr|year)', s)
+def _kw_hit(kw, blob):
+    """True if a keyword/phrase appears in the blob. Short or all-caps keywords
+    (BAS, PLC, DDC, N2…) require word boundaries to avoid false positives."""
+    k = (kw or '').strip()
+    if not k:
+        return False
+    kl = k.lower()
+    if len(kl) <= 4 or k.isupper():
+        return re.search(r'(?<![a-z0-9])' + re.escape(kl) + r'(?![a-z0-9])', blob) is not None
+    return kl in blob
+
+def _kw_signal(keywords, blob, target):
+    """Fraction in 0..1: number of distinct keyword hits, saturating at `target`."""
+    hits = sum(1 for kw in keywords if _kw_hit(kw, blob))
+    return min(1.0, hits / float(target)) if target else 0.0
+
+def _title_signal(d, rec, job_titles):
+    cur = _title_match_fraction(rec.get('Current Title', ''), job_titles)
+    former = max((_title_match_fraction(t, job_titles) for t in _former_titles(d)), default=0.0)
+    return max(cur, 0.7 * former)   # current title counts more than a past one
+
+def _competitor_info(d, rec):
+    """Return (matched competitor name, signal). Current employer match = 1.0,
+    former employer match = 0.6, otherwise ('', 0.0)."""
+    def hit(company):
+        c = (company or '').strip().lower()
+        if not c:
+            return ''
+        for name in _COMP_NAMES:
+            nl = name.lower()
+            if len(nl) <= 4:
+                if re.search(r'(?<![a-z0-9])' + re.escape(nl) + r'(?![a-z0-9])', c):
+                    return name
+            elif nl in c or c in nl:
+                return name
+        return ''
+    m = hit(rec.get('Current Company', ''))
     if m:
-        yrs += int(m.group(1))
-    m = re.search(r'(\d+)\s*(?:mo|month)', s)
-    if m:
-        yrs += int(m.group(1)) / 12.0
-    return yrs
-
-def _tenure_fraction(tenure):
-    y = _years_from_duration(tenure)
-    if y <= 0:
-        return 0.0
-    if y >= 3:
-        return 1.0
-    return 0.7 if y >= 1.5 else 0.4
-
-def _seniority_fraction(title):
-    t = (title or '').lower()
-    return 1.0 if any(k in t for k in FIT_SENIORITY_KEYWORDS) else 0.0
+        return m, 1.0
+    for i in range(25):
+        m = hit(val(d, f'experience/{i}/companyName'))
+        if m:
+            return m, 0.6
+    return '', 0.0
 
 # Location scoring is relative to the run's target location (no hardcoded city).
 _STATE_ABBR = {'al','ak','az','ar','ca','co','ct','de','fl','ga','hi','id','il','in','ia','ks',
@@ -284,27 +319,35 @@ def _location_fraction(cand_loc, target_loc):
     # state-only target (e.g. "Texas") — being in that state is a full match
     return 1.0 if any(s in cand for s in states) else 0.0
 
-def fit_score(d, rec, target_titles, target_location):
-    """0–100 fit score; normalized over whichever factors apply this run."""
-    targets = [t for t in (target_titles or []) if t]
-    parts = [
-        (FIT_W_TITLE_CURRENT, _title_match_fraction(rec.get('Current Title', ''), targets)),
-        (FIT_W_TITLE_FORMER,  max((_title_match_fraction(t, targets)
-                                   for t in _former_titles(d)), default=0.0)),
-        (FIT_W_VERTICAL,      _vertical_fraction(rec.get('Vertical Match', ''))),
-        (FIT_W_INDUSTRY,      _industry_fraction(d)),
-        (FIT_W_TENURE,        _tenure_fraction(rec.get('Tenure', ''))),
-        (FIT_W_SENIORITY,     _seniority_fraction(rec.get('Current Title', ''))),
-    ]
-    loc = _location_fraction(rec.get('Location', ''), target_location)
-    if loc is not None:
-        parts.append((FIT_W_LOCATION, loc))
-    total = sum(w for w, _ in parts) or 1
-    return round(sum(w * f for w, f in parts) / total * 100)
+def role_fit_score(d, rec, role, target_location, comp_signal):
+    """0–100 fit score using the selected role's own criteria + weights. Each
+    criterion maps to a computable signal (title / skills-terms / industry /
+    vertical / competitor experience / location). The role-specific 'experience'
+    criteria are captured by the role's skills/terms keyword match. Score is
+    normalized over whichever criteria apply (location drops out with no run
+    location), so it always reads 0–100."""
+    blob = _cand_blob(d, rec)
+    signals = {
+        'title':      _title_signal(d, rec, role.get('job_titles', [])),
+        'skills':     _kw_signal(role.get('skills', []), blob, target=5),
+        'industry':   _kw_signal(role.get('industries', []), _industry_text(d) + ' ' + blob, target=2),
+        'vertical':   _kw_signal(role.get('verticals', []), blob, target=2),
+        'competitor': comp_signal,
+        'location':   _location_fraction(rec.get('Location', ''), target_location),
+    }
+    acc = tot = 0.0
+    for crit in role.get('criteria', []):
+        s = signals.get(_criterion_signal_key(crit['name']))
+        if s is None:          # location criterion but the run has no location -> drop its weight
+            continue
+        acc += crit['weight'] * s
+        tot += crit['weight']
+    return round(acc / tot * 100) if tot else 0
 
-# Display columns: Fit Score first, then Location moved to right after Current Title.
+# Display columns: Fit Score first, then Location after Current Title, then a
+# Competitor flag right after Current Company.
 COLUMNS = ['Fit Score','First Name','Last Name','Current Title','Location','Current Company',
-           'Vertical Match','Headline','Tenure','Open To Work','Email','Previous Roles',
+           'Competitor','Vertical Match','Headline','Tenure','Open To Work','Email','Previous Roles',
            'Top Skills','LinkedIn URL','Company LinkedIn','Connections','Summary']
 
 def condense(d):
@@ -331,6 +374,7 @@ def _excel_summary_sheet(ws, summary):
     ws['A1'] = 'Run Summary'; ws['A1'].font = head; ws['A1'].fill = title_fill
     ws['B1'].fill = title_fill
     rows = [
+        ('Role', summary.get('Role', '')),
         ('Search location', summary.get('Location', '')),
         ('Date', summary.get('Timestamp', '')),
         ('Profiles requested', summary.get('Requested', '')),
@@ -372,8 +416,8 @@ def build_excel_bytes(rows, cols=COLUMNS, summary=None):
                 cell.font = base
             if ri % 2 == 0:
                 cell.fill = band
-    W = {'Fit Score':10,'Date Added':13,'Search Location':18,'First Name':12,'Last Name':13,
-         'Current Title':26,'Current Company':22,'Vertical Match':22,
+    W = {'Fit Score':10,'Date Added':13,'Sourced Role':26,'Search Location':18,'First Name':12,
+         'Last Name':13,'Current Title':26,'Current Company':22,'Competitor':20,'Vertical Match':22,
          'Headline':38,'Location':24,'Tenure':12,'Open To Work':11,'Email':30,'Previous Roles':46,
          'Top Skills':28,'LinkedIn URL':34,'Company LinkedIn':34,'Connections':12,'Summary':55}
     for ci, h in enumerate(cols, 1):
@@ -393,9 +437,9 @@ def _dsid(r):
 # so new-vs-duplicate counts work across runs and days. If the Google Sheet secrets
 # aren't configured yet, everything falls back to in-session memory so the app still
 # runs — see SETUP_GOOGLE_SHEETS.md to connect a sheet.
-# Master sheet order: Date Added, then Fit Score (2nd), then Search Location, then the rest.
-MASTER_HEADERS = ["Date Added", "Fit Score", "Search Location"] + [c for c in COLUMNS if c != "Fit Score"]
-SEARCH_HEADERS = ["Timestamp", "Location", "Requested", "Found", "New", "Dupes"]
+# Master sheet order: Date Added, Fit Score (2nd), the role it was sourced for, then the rest.
+MASTER_HEADERS = ["Date Added", "Fit Score", "Sourced Role", "Search Location"] + [c for c in COLUMNS if c != "Fit Score"]
+SEARCH_HEADERS = ["Timestamp", "Role", "Location", "Requested", "Found", "New", "Dupes"]
 
 def _norm_url(u):
     u = (u or "").strip().lower()
@@ -428,7 +472,8 @@ def _gs_book():
 # ---- cosmetic formatting for the Google Sheet tabs (best-effort) ----
 _NAVY_RGB = {"red": 0.055, "green": 0.176, "blue": 0.322}  # #0E2D52
 _COLW = {
-    'Fit Score': 75, 'Date Added': 95, 'Search Location': 135, 'First Name': 95, 'Last Name': 100,
+    'Fit Score': 75, 'Date Added': 95, 'Sourced Role': 200, 'Search Location': 135, 'Role': 200,
+    'First Name': 95, 'Last Name': 100, 'Competitor': 150,
     'Current Title': 190, 'Current Company': 165, 'Vertical Match': 165, 'Headline': 290,
     'Location': 175, 'Tenure': 95, 'Open To Work': 95, 'Email': 220, 'Previous Roles': 320,
     'Top Skills': 200, 'LinkedIn URL': 240, 'Company LinkedIn': 240, 'Connections': 100,
@@ -537,7 +582,8 @@ def save_master(rows):
 def save_search(rec):
     if gs_configured():
         ws = _ws("Searches", SEARCH_HEADERS)
-        ws.append_row([rec.get(h, "") for h in SEARCH_HEADERS],
+        header = _ensure_columns(ws, SEARCH_HEADERS)   # adds Role column if absent
+        ws.append_row([rec.get(h, "") for h in header],
                       value_input_option="USER_ENTERED")
     else:
         st.session_state.setdefault("searches", []).append(rec)
@@ -651,6 +697,21 @@ tab_search, tab_history, tab_master = st.tabs(
 
 # ------------------------------- New Search -------------------------------
 with tab_search:
+    with st.container(border=True):
+        st.markdown('<p class="ae-label">🧭 Role</p>', unsafe_allow_html=True)
+        st.markdown('<p class="ae-help">What role are you sourcing for? Sets the search keywords and the Fit Score weights.</p>',
+                    unsafe_allow_html=True)
+        role_name = st.selectbox("Role", ROLE_NAMES, label_visibility="collapsed")
+        _role = ROLES[role_name]
+        with st.expander("What this role targets"):
+            st.markdown(f"**Job titles searched:** {', '.join(_role['job_titles'])}")
+            st.markdown(f"**Skills / terms:** {', '.join(_role['skills'][:18])}"
+                        + ("…" if len(_role['skills']) > 18 else ""))
+            st.markdown(f"**Industries:** {', '.join(_role['industries'])}")
+            st.markdown(f"**Verticals:** {', '.join(_role['verticals'])}")
+            st.markdown("**Fit Score weighting:** "
+                        + " · ".join(f"{c['name']} {round(c['weight']*100)}%" for c in _role['criteria']))
+
     col1, col2 = st.columns(2, gap="large")
     with col1:
         with st.container(border=True):
@@ -680,10 +741,13 @@ with tab_search:
             st.warning("Please choose or enter a location.")
             st.stop()
         try:
-            with st.spinner("Searching LinkedIn… this usually takes a minute or two."):
+            role = ROLES[role_name]
+            with st.spinner(f"Searching LinkedIn for {role_name}… this usually takes a minute or two."):
                 client = ApifyClient(st.secrets["APIFY_TOKEN"])
-                # full config sent every run, so verticals/titles/mode can never drift
+                # Target the search with the selected role's job titles.
                 run_input = dict(BASE_INPUT)
+                run_input["currentJobTitles"] = role["job_titles"]
+                run_input["pastJobTitles"] = role["job_titles"]
                 run_input["locations"] = [location]
                 run_input["maxItems"] = size
                 run = client.task(TASK_ID).call(task_input=run_input)
@@ -694,8 +758,10 @@ with tab_search:
                 if not val(d, 'linkedinUrl'):
                     continue
                 rec = condense(d)
-                # Fit Score is scored against this run's target titles + location.
-                rec['Fit Score'] = fit_score(d, rec, TITLES, location)
+                comp_name, comp_sig = _competitor_info(d, rec)
+                rec['Competitor'] = comp_name
+                # Fit Score uses the selected role's own criteria + weights.
+                rec['Fit Score'] = role_fit_score(d, rec, role, location, comp_sig)
                 recs.append(rec)
             if not recs:
                 st.error("No results came back. This usually means the Apify free-tier run limit was hit "
@@ -718,17 +784,20 @@ with tab_search:
             # ---- persist: new reps -> master, this run -> history ----
             today = datetime.date.today().isoformat()
             now = datetime.datetime.now().isoformat(timespec='minutes').replace('T', ' ')
-            save_master([{'Date Added': today, 'Search Location': location, **r} for r in new_recs])
-            search_rec = {'Timestamp': now, 'Location': location, 'Requested': size,
+            save_master([{'Date Added': today, 'Sourced Role': role_name,
+                          'Search Location': location, **r} for r in new_recs])
+            search_rec = {'Timestamp': now, 'Role': role_name, 'Location': location, 'Requested': size,
                           'Found': len(recs), 'New': len(new_recs), 'Dupes': dupes}
             save_search(search_rec)
             summary = {**search_rec, 'MasterTotal': len(master) + len(new_recs)}
 
             df = pd.DataFrame(recs, columns=COLUMNS)
+            n_comp = sum(1 for r in recs if r.get('Competitor'))
             st.markdown(
-                f'<div class="ae-result">✓ Found {len(df)} reps near {location}'
+                f'<div class="ae-result">✓ Found {len(df)} {role_name} near {location}'
                 f' &nbsp;·&nbsp; <b>{len(new_recs)} new</b> added to master'
-                f' &nbsp;·&nbsp; {dupes} already on file</div>', unsafe_allow_html=True)
+                f' &nbsp;·&nbsp; {dupes} already on file'
+                f' &nbsp;·&nbsp; {n_comp} from competitors</div>', unsafe_allow_html=True)
 
             m1, m2, m3, m4 = st.columns(4)
             m1.metric("Profiles found", len(df))

@@ -1,0 +1,1514 @@
+{
+  "roles": [
+    {
+      "role": "Account Executive (BAS)",
+      "family": "BAS",
+      "job_titles": [
+        "Account Executive",
+        "Sales Executive",
+        "Business Development Manager",
+        "Sales Engineer",
+        "Strategic Account Manager",
+        "Territory Manager",
+        "Regional Sales Manager",
+        "Client Executive",
+        "Account Manager",
+        "Controls Sales Executive"
+      ],
+      "skills": [
+        "BAS",
+        "HVAC Controls",
+        "Building Automation Systems",
+        "Building Automation",
+        "DDC",
+        "Building Controls",
+        "Smart Buildings",
+        "Energy Management",
+        "Controls Integration",
+        "BACnet",
+        "Niagara",
+        "Tridium",
+        "Prospecting",
+        "New Business",
+        "Hunter",
+        "Consultative Sales",
+        "Owner Direct Sales",
+        "End User Sales",
+        "Mechanical Contractor Relationships",
+        "General Contractor Relationships",
+        "Consulting Engineer Relationships",
+        "Design-Build",
+        "Retrofit Sales",
+        "Service Sales",
+        "Controls Modernization",
+        "Energy Optimization",
+        "Pipeline Management",
+        "CRM",
+        "Forecasting",
+        "Proposal Development",
+        "Negotiation",
+        "Customer Relationships",
+        "Account Growth"
+      ],
+      "industries": [
+        "Building Automation Systems (BAS)",
+        "HVAC Controls",
+        "Smart Buildings",
+        "Energy Services",
+        "Mechanical Contracting",
+        "Controls Integration",
+        "Commercial Construction",
+        "Facility Services"
+      ],
+      "verticals": [
+        "Data Centers",
+        "Healthcare",
+        "Higher Education",
+        "K-12",
+        "Commercial Office",
+        "Government",
+        "Federal",
+        "Industrial",
+        "Life Sciences",
+        "Mission Critical"
+      ],
+      "criteria": [
+        {
+          "name": "Relevant Industry: BAS/HVAC Controls",
+          "weight": 0.25
+        },
+        {
+          "name": "Relevant Sales Title",
+          "weight": 0.25
+        },
+        {
+          "name": "Customer/Contractor Relationships",
+          "weight": 0.2
+        },
+        {
+          "name": "Vertical Experience",
+          "weight": 0.15
+        },
+        {
+          "name": "Competitor Experience",
+          "weight": 0.1
+        },
+        {
+          "name": "Geographic Location",
+          "weight": 0.05
+        }
+      ],
+      "weight_total": 1.0
+    },
+    {
+      "role": "Estimator (BAS)",
+      "family": "BAS",
+      "job_titles": [
+        "Estimator",
+        "Controls Estimator",
+        "BAS Estimator",
+        "Mechanical Estimator",
+        "Preconstruction Engineer",
+        "Proposal Engineer",
+        "Cost Estimator",
+        "Applications Engineer"
+      ],
+      "skills": [
+        "BAS",
+        "HVAC Controls",
+        "Building Automation Systems",
+        "Building Automation",
+        "DDC",
+        "Building Controls",
+        "Smart Buildings",
+        "Energy Management",
+        "Controls Integration",
+        "BACnet",
+        "Niagara",
+        "Tridium",
+        "Takeoffs",
+        "Plan Takeoff",
+        "Bluebeam",
+        "Trimble",
+        "AutoBid",
+        "Plans and Specifications",
+        "Bid Documents",
+        "RFIs",
+        "Submittals",
+        "Proposals",
+        "Bid Analysis",
+        "Cost Estimating",
+        "Value Engineering",
+        "Scope Review",
+        "Vendor Pricing",
+        "Subcontractor Quotes",
+        "Equipment Pricing",
+        "Labor Estimates",
+        "Points Count",
+        "Control Drawings",
+        "Sequence of Operations",
+        "Addenda",
+        "Bid Day",
+        "Preconstruction"
+      ],
+      "industries": [
+        "BAS",
+        "HVAC Controls",
+        "Mechanical Contracting",
+        "Electrical Contracting",
+        "Commercial Construction",
+        "Controls Integration"
+      ],
+      "verticals": [
+        "Commercial",
+        "Healthcare",
+        "Education",
+        "Data Centers",
+        "Government",
+        "Industrial",
+        "Life Sciences"
+      ],
+      "criteria": [
+        {
+          "name": "Estimating Experience",
+          "weight": 0.35
+        },
+        {
+          "name": "BAS/HVAC Controls Industry",
+          "weight": 0.3
+        },
+        {
+          "name": "Project Size/Complexity",
+          "weight": 0.15
+        },
+        {
+          "name": "Plans/Specs and Takeoffs",
+          "weight": 0.1
+        },
+        {
+          "name": "Estimating Software",
+          "weight": 0.05
+        },
+        {
+          "name": "Competitor Experience",
+          "weight": 0.05
+        }
+      ],
+      "weight_total": 1.0
+    },
+    {
+      "role": "Sales Manager (BAS)",
+      "family": "BAS",
+      "job_titles": [
+        "Sales Manager",
+        "Regional Sales Manager",
+        "Area Sales Manager",
+        "Director of Sales",
+        "Branch Sales Manager",
+        "Sales Leader",
+        "Sales Director",
+        "Business Development Manager"
+      ],
+      "skills": [
+        "BAS",
+        "HVAC Controls",
+        "Building Automation Systems",
+        "Building Automation",
+        "DDC",
+        "Building Controls",
+        "Smart Buildings",
+        "Energy Management",
+        "Controls Integration",
+        "BACnet",
+        "Niagara",
+        "Tridium",
+        "Sales Leadership",
+        "Sales Coaching",
+        "Forecasting",
+        "Revenue Growth",
+        "Sales Strategy",
+        "Team Development",
+        "Pipeline Management",
+        "CRM",
+        "Quota Attainment",
+        "Go-to-Market",
+        "Account Planning",
+        "Territory Planning",
+        "Performance Management",
+        "Hiring Sales Talent",
+        "Customer Relationships",
+        "Executive Relationships",
+        "Owner Direct",
+        "Mechanical Contractors",
+        "Consulting Engineers",
+        "Strategic Accounts",
+        "Margin Management"
+      ],
+      "industries": [
+        "BAS",
+        "HVAC Controls",
+        "Energy Services",
+        "Mechanical Services",
+        "Controls Integration",
+        "Smart Buildings"
+      ],
+      "verticals": [
+        "Healthcare",
+        "Commercial",
+        "Mission Critical",
+        "Data Centers",
+        "Industrial",
+        "Education",
+        "Government"
+      ],
+      "criteria": [
+        {
+          "name": "Sales Leadership",
+          "weight": 0.3
+        },
+        {
+          "name": "BAS/HVAC Controls Experience",
+          "weight": 0.25
+        },
+        {
+          "name": "Revenue Growth/Forecasting",
+          "weight": 0.2
+        },
+        {
+          "name": "Team Development",
+          "weight": 0.15
+        },
+        {
+          "name": "Customer Relationships",
+          "weight": 0.05
+        },
+        {
+          "name": "Competitor Experience",
+          "weight": 0.05
+        }
+      ],
+      "weight_total": 1.0
+    },
+    {
+      "role": "Operations Manager (BAS)",
+      "family": "BAS",
+      "job_titles": [
+        "Operations Manager",
+        "Branch Manager",
+        "General Manager",
+        "Regional Operations Manager",
+        "Service Operations Manager",
+        "Operations Director"
+      ],
+      "skills": [
+        "BAS",
+        "HVAC Controls",
+        "Building Automation Systems",
+        "Building Automation",
+        "DDC",
+        "Building Controls",
+        "Smart Buildings",
+        "Energy Management",
+        "Controls Integration",
+        "BACnet",
+        "Niagara",
+        "Tridium",
+        "P&L",
+        "Resource Planning",
+        "Staffing",
+        "Project Delivery",
+        "Service Delivery",
+        "Operational Excellence",
+        "Budget Management",
+        "Forecasting",
+        "Revenue",
+        "Gross Margin",
+        "Customer Satisfaction",
+        "KPI Management",
+        "Team Leadership",
+        "Process Improvement",
+        "Scheduling",
+        "Risk Management",
+        "Subcontractor Management",
+        "Change Orders",
+        "Project Financials",
+        "Backlog",
+        "Utilization",
+        "Safety",
+        "Quality Control",
+        "Customer Escalations"
+      ],
+      "industries": [
+        "BAS",
+        "HVAC Controls",
+        "Mechanical Services",
+        "Controls Integration",
+        "Facility Services",
+        "Commercial Construction"
+      ],
+      "verticals": [
+        "Commercial",
+        "Healthcare",
+        "Data Centers",
+        "Education",
+        "Industrial",
+        "Government"
+      ],
+      "criteria": [
+        {
+          "name": "Leadership/People Management",
+          "weight": 0.25
+        },
+        {
+          "name": "P&L/Financial Ownership",
+          "weight": 0.25
+        },
+        {
+          "name": "BAS/HVAC Controls Industry",
+          "weight": 0.25
+        },
+        {
+          "name": "Project/Service Delivery",
+          "weight": 0.15
+        },
+        {
+          "name": "Customer Satisfaction",
+          "weight": 0.05
+        },
+        {
+          "name": "Competitor Experience",
+          "weight": 0.05
+        }
+      ],
+      "weight_total": 1.0
+    },
+    {
+      "role": "Project Manager (BAS)",
+      "family": "BAS",
+      "job_titles": [
+        "Project Manager",
+        "BAS Project Manager",
+        "Controls Project Manager",
+        "Construction Project Manager",
+        "Senior Project Manager",
+        "Project Lead",
+        "Project Executive"
+      ],
+      "skills": [
+        "BAS",
+        "HVAC Controls",
+        "Building Automation Systems",
+        "Building Automation",
+        "DDC",
+        "Building Controls",
+        "Smart Buildings",
+        "Energy Management",
+        "Controls Integration",
+        "BACnet",
+        "Niagara",
+        "Tridium",
+        "Project Management",
+        "Scheduling",
+        "Budget Management",
+        "Cost Control",
+        "Change Orders",
+        "RFIs",
+        "Submittals",
+        "Procurement",
+        "Commissioning",
+        "Closeout",
+        "Procore",
+        "Bluebeam",
+        "MS Project",
+        "Primavera P6",
+        "Customer Coordination",
+        "Mechanical Coordination",
+        "Electrical Coordination",
+        "Subcontractor Management",
+        "Scope Management",
+        "Punch List",
+        "Startup",
+        "QA/QC",
+        "Forecasting",
+        "Billing",
+        "Job Costing",
+        "Risk Management",
+        "Owner Meetings",
+        "Construction Management"
+      ],
+      "industries": [
+        "BAS",
+        "HVAC Controls",
+        "Mechanical Contracting",
+        "Controls Integration",
+        "Commercial Construction"
+      ],
+      "verticals": [
+        "Healthcare",
+        "Commercial",
+        "Data Centers",
+        "Education",
+        "Government",
+        "Industrial",
+        "Life Sciences"
+      ],
+      "criteria": [
+        {
+          "name": "BAS/HVAC Controls Experience",
+          "weight": 0.3
+        },
+        {
+          "name": "Project Management Experience",
+          "weight": 0.25
+        },
+        {
+          "name": "Project Size/Complexity",
+          "weight": 0.15
+        },
+        {
+          "name": "Financial Management",
+          "weight": 0.15
+        },
+        {
+          "name": "Leadership/Customer Management",
+          "weight": 0.1
+        },
+        {
+          "name": "Competitor Experience",
+          "weight": 0.05
+        }
+      ],
+      "weight_total": 1.0
+    },
+    {
+      "role": "Systems Specialist (BAS)",
+      "family": "BAS",
+      "job_titles": [
+        "Systems Specialist",
+        "Controls Technician",
+        "BAS Technician",
+        "Controls Engineer",
+        "Field Engineer",
+        "Building Automation Specialist",
+        "DDC Technician"
+      ],
+      "skills": [
+        "BAS",
+        "HVAC Controls",
+        "Building Automation Systems",
+        "Building Automation",
+        "DDC",
+        "Building Controls",
+        "Smart Buildings",
+        "Energy Management",
+        "Controls Integration",
+        "BACnet",
+        "Niagara",
+        "Tridium",
+        "Controls Technician",
+        "Startup",
+        "Commissioning",
+        "Troubleshooting",
+        "Graphics",
+        "DDC Programming",
+        "Controller Setup",
+        "Point-to-Point Checkout",
+        "Controls Installation",
+        "Service Calls",
+        "Field Service",
+        "Integration",
+        "Modbus",
+        "LonWorks",
+        "N2",
+        "MS/TP",
+        "IP Networking",
+        "VAV",
+        "AHU",
+        "Chiller Plant",
+        "Boiler Plant",
+        "VFD",
+        "Sensors",
+        "Actuators",
+        "Wiring Diagrams",
+        "Customer Support"
+      ],
+      "industries": [
+        "BAS",
+        "HVAC Controls",
+        "Building Automation",
+        "Facility Services",
+        "Controls Integration"
+      ],
+      "verticals": [
+        "Commercial",
+        "Healthcare",
+        "Industrial",
+        "Education",
+        "Data Centers",
+        "Government"
+      ],
+      "criteria": [
+        {
+          "name": "BAS Platform Experience",
+          "weight": 0.3
+        },
+        {
+          "name": "Troubleshooting/Commissioning",
+          "weight": 0.25
+        },
+        {
+          "name": "Field Experience",
+          "weight": 0.2
+        },
+        {
+          "name": "Programming/Graphics",
+          "weight": 0.15
+        },
+        {
+          "name": "Certifications",
+          "weight": 0.05
+        },
+        {
+          "name": "Competitor Experience",
+          "weight": 0.05
+        }
+      ],
+      "weight_total": 1.0
+    },
+    {
+      "role": "Design Engineer (BAS)",
+      "family": "BAS",
+      "job_titles": [
+        "Design Engineer",
+        "Controls Design Engineer",
+        "Applications Engineer",
+        "Systems Engineer",
+        "BAS Engineer",
+        "Controls Engineer",
+        "Design Specialist"
+      ],
+      "skills": [
+        "BAS",
+        "HVAC Controls",
+        "Building Automation Systems",
+        "Building Automation",
+        "DDC",
+        "Building Controls",
+        "Smart Buildings",
+        "Energy Management",
+        "Controls Integration",
+        "BACnet",
+        "Niagara",
+        "Tridium",
+        "AutoCAD",
+        "Visio",
+        "Revit",
+        "Control Drawings",
+        "Shop Drawings",
+        "Sequences of Operation",
+        "Points Lists",
+        "Valve Schedules",
+        "Damper Schedules",
+        "Network Architecture",
+        "Wiring Diagrams",
+        "Submittals",
+        "Engineering Documentation",
+        "Equipment Selection",
+        "Controller Selection",
+        "Panel Layouts",
+        "I/O Lists",
+        "Specification Review",
+        "Mechanical Plans",
+        "Electrical Plans",
+        "BOM",
+        "Bill of Materials",
+        "Design Standards",
+        "ASHRAE",
+        "LEED",
+        "Energy Codes"
+      ],
+      "industries": [
+        "BAS",
+        "HVAC Controls",
+        "Mechanical Engineering",
+        "Controls Integration",
+        "Commercial Construction"
+      ],
+      "verticals": [
+        "Commercial",
+        "Healthcare",
+        "Data Centers",
+        "Education",
+        "Government",
+        "Life Sciences",
+        "Industrial"
+      ],
+      "criteria": [
+        {
+          "name": "Controls Design Experience",
+          "weight": 0.35
+        },
+        {
+          "name": "BAS/HVAC Controls Experience",
+          "weight": 0.25
+        },
+        {
+          "name": "Engineering Software",
+          "weight": 0.15
+        },
+        {
+          "name": "Sequences/Points Lists/Drawings",
+          "weight": 0.15
+        },
+        {
+          "name": "Project Coordination",
+          "weight": 0.05
+        },
+        {
+          "name": "Competitor Experience",
+          "weight": 0.05
+        }
+      ],
+      "weight_total": 1.0
+    },
+    {
+      "role": "Project Engineer (BAS)",
+      "family": "BAS",
+      "job_titles": [
+        "Project Engineer",
+        "Associate Project Manager",
+        "Applications Engineer",
+        "Controls Engineer",
+        "Assistant Project Manager",
+        "Project Coordinator",
+        "BAS Engineer"
+      ],
+      "skills": [
+        "BAS",
+        "HVAC Controls",
+        "Building Automation Systems",
+        "Building Automation",
+        "DDC",
+        "Building Controls",
+        "Smart Buildings",
+        "Energy Management",
+        "Controls Integration",
+        "BACnet",
+        "Niagara",
+        "Tridium",
+        "RFIs",
+        "Submittals",
+        "Procurement",
+        "Shop Drawings",
+        "Commissioning Support",
+        "Scheduling",
+        "Cost Tracking",
+        "Document Control",
+        "Procore",
+        "Bluebeam",
+        "As-Builts",
+        "Closeout",
+        "O&M Manuals",
+        "Points Lists",
+        "Sequences of Operation",
+        "Control Drawings",
+        "Vendor Coordination",
+        "Subcontractor Coordination",
+        "Material Tracking",
+        "Change Orders",
+        "Meeting Minutes",
+        "Punch List",
+        "Startup Support",
+        "Customer Coordination",
+        "Budget Tracking"
+      ],
+      "industries": [
+        "BAS",
+        "HVAC Controls",
+        "Controls Integration",
+        "Mechanical Contracting",
+        "Commercial Construction"
+      ],
+      "verticals": [
+        "Commercial",
+        "Healthcare",
+        "Education",
+        "Data Centers",
+        "Government",
+        "Industrial"
+      ],
+      "criteria": [
+        {
+          "name": "Project Engineering Experience",
+          "weight": 0.3
+        },
+        {
+          "name": "BAS/HVAC Controls Industry",
+          "weight": 0.25
+        },
+        {
+          "name": "Documentation/RFIs/Submittals",
+          "weight": 0.2
+        },
+        {
+          "name": "Technical Knowledge",
+          "weight": 0.15
+        },
+        {
+          "name": "Project Coordination",
+          "weight": 0.05
+        },
+        {
+          "name": "Competitor Experience",
+          "weight": 0.05
+        }
+      ],
+      "weight_total": 1.0
+    },
+    {
+      "role": "Programmer (BAS)",
+      "family": "BAS",
+      "job_titles": [
+        "BAS Programmer",
+        "Controls Programmer",
+        "Systems Integrator",
+        "Automation Programmer",
+        "DDC Programmer",
+        "Niagara Programmer",
+        "Controls Engineer"
+      ],
+      "skills": [
+        "BAS",
+        "HVAC Controls",
+        "Building Automation Systems",
+        "Building Automation",
+        "DDC",
+        "Building Controls",
+        "Smart Buildings",
+        "Energy Management",
+        "Controls Integration",
+        "BACnet",
+        "Niagara",
+        "Tridium",
+        "DDC Programming",
+        "Niagara AX",
+        "Niagara 4",
+        "N4",
+        "Graphics",
+        "Systems Integration",
+        "BACnet/IP",
+        "BACnet MS/TP",
+        "Modbus TCP",
+        "Modbus RTU",
+        "LonWorks",
+        "OPC",
+        "SQL",
+        "Scripting",
+        "JavaScript",
+        "HTML5 Graphics",
+        "Controller Programming",
+        "Logic Blocks",
+        "Function Blocks",
+        "Trend Logs",
+        "Alarming",
+        "Scheduling",
+        "VAV Programming",
+        "AHU Programming",
+        "Chiller Plant",
+        "Boiler Plant",
+        "Commissioning",
+        "Startup",
+        "Debugging"
+      ],
+      "industries": [
+        "BAS",
+        "HVAC Controls",
+        "Building Automation",
+        "Controls Integration",
+        "Smart Buildings"
+      ],
+      "verticals": [
+        "Commercial",
+        "Healthcare",
+        "Data Centers",
+        "Education",
+        "Industrial",
+        "Life Sciences"
+      ],
+      "criteria": [
+        {
+          "name": "BAS Programming Experience",
+          "weight": 0.4
+        },
+        {
+          "name": "BAS Platforms/Niagara/Tridium",
+          "weight": 0.25
+        },
+        {
+          "name": "Systems Integration",
+          "weight": 0.15
+        },
+        {
+          "name": "Troubleshooting/Commissioning",
+          "weight": 0.1
+        },
+        {
+          "name": "Graphics/Front-End",
+          "weight": 0.05
+        },
+        {
+          "name": "Competitor Experience",
+          "weight": 0.05
+        }
+      ],
+      "weight_total": 1.0
+    },
+    {
+      "role": "Service Manager (BAS)",
+      "family": "BAS",
+      "job_titles": [
+        "Service Manager",
+        "Operations Manager",
+        "Service Operations Manager",
+        "Field Service Manager",
+        "Controls Service Manager",
+        "Service Supervisor"
+      ],
+      "skills": [
+        "BAS",
+        "HVAC Controls",
+        "Building Automation Systems",
+        "Building Automation",
+        "DDC",
+        "Building Controls",
+        "Smart Buildings",
+        "Energy Management",
+        "Controls Integration",
+        "BACnet",
+        "Niagara",
+        "Tridium",
+        "Service Operations",
+        "Dispatch",
+        "Technician Management",
+        "Scheduling",
+        "Preventive Maintenance",
+        "Customer Retention",
+        "Service Delivery",
+        "KPIs",
+        "Revenue",
+        "Gross Margin",
+        "Utilization",
+        "Escalations",
+        "Customer Satisfaction",
+        "Service Agreements",
+        "Renewals",
+        "Warranty",
+        "Repairs",
+        "Troubleshooting",
+        "Field Service",
+        "Team Leadership",
+        "Training",
+        "Safety",
+        "Quality",
+        "Inventory",
+        "Work Orders",
+        "ServiceTitan",
+        "ERP",
+        "CRM"
+      ],
+      "industries": [
+        "BAS",
+        "HVAC Controls",
+        "HVAC Service",
+        "Mechanical Services",
+        "Facility Services",
+        "Controls Integration"
+      ],
+      "verticals": [
+        "Commercial",
+        "Healthcare",
+        "Education",
+        "Government",
+        "Industrial",
+        "Data Centers"
+      ],
+      "criteria": [
+        {
+          "name": "Service Leadership",
+          "weight": 0.3
+        },
+        {
+          "name": "Service Operations",
+          "weight": 0.25
+        },
+        {
+          "name": "BAS/HVAC Controls Experience",
+          "weight": 0.2
+        },
+        {
+          "name": "Customer Retention",
+          "weight": 0.1
+        },
+        {
+          "name": "Financial Performance",
+          "weight": 0.1
+        },
+        {
+          "name": "Competitor Experience",
+          "weight": 0.05
+        }
+      ],
+      "weight_total": 1.0
+    },
+    {
+      "role": "Service Contract Manager (BAS)",
+      "family": "BAS",
+      "job_titles": [
+        "Service Contract Manager",
+        "Service Sales Manager",
+        "Account Manager",
+        "Service Account Manager",
+        "Maintenance Sales Manager",
+        "Contract Manager"
+      ],
+      "skills": [
+        "BAS",
+        "HVAC Controls",
+        "Building Automation Systems",
+        "Building Automation",
+        "DDC",
+        "Building Controls",
+        "Smart Buildings",
+        "Energy Management",
+        "Controls Integration",
+        "BACnet",
+        "Niagara",
+        "Tridium",
+        "Preventive Maintenance",
+        "Service Agreements",
+        "Maintenance Agreements",
+        "Contract Renewals",
+        "Recurring Revenue",
+        "Account Management",
+        "Customer Retention",
+        "Upselling",
+        "Cross-Selling",
+        "Service Sales",
+        "Renewal Strategy",
+        "Contract Pricing",
+        "Proposal Development",
+        "Scope of Work",
+        "SLA",
+        "Customer Relationships",
+        "Portfolio Management",
+        "Warranty Conversion",
+        "Lifecycle Services",
+        "Energy Services",
+        "Controls Modernization",
+        "Service Pipeline",
+        "CRM",
+        "Forecasting"
+      ],
+      "industries": [
+        "BAS",
+        "HVAC Controls",
+        "HVAC Service",
+        "Mechanical Services",
+        "Facility Services",
+        "Energy Services"
+      ],
+      "verticals": [
+        "Commercial",
+        "Healthcare",
+        "Education",
+        "Government",
+        "Industrial",
+        "Data Centers"
+      ],
+      "criteria": [
+        {
+          "name": "Contract Management/Renewals",
+          "weight": 0.3
+        },
+        {
+          "name": "Customer Relationships",
+          "weight": 0.25
+        },
+        {
+          "name": "BAS/HVAC Controls Experience",
+          "weight": 0.2
+        },
+        {
+          "name": "Recurring Revenue Growth",
+          "weight": 0.15
+        },
+        {
+          "name": "Sales/Account Management",
+          "weight": 0.05
+        },
+        {
+          "name": "Competitor Experience",
+          "weight": 0.05
+        }
+      ],
+      "weight_total": 1.0
+    },
+    {
+      "role": "Service Systems Specialist (BAS)",
+      "family": "BAS",
+      "job_titles": [
+        "Service Systems Specialist",
+        "BAS Service Technician",
+        "Controls Technician",
+        "Systems Specialist",
+        "Service Technician",
+        "Field Service Technician",
+        "DDC Technician"
+      ],
+      "skills": [
+        "BAS",
+        "HVAC Controls",
+        "Building Automation Systems",
+        "Building Automation",
+        "DDC",
+        "Building Controls",
+        "Smart Buildings",
+        "Energy Management",
+        "Controls Integration",
+        "BACnet",
+        "Niagara",
+        "Tridium",
+        "Troubleshooting",
+        "Preventive Maintenance",
+        "Repairs",
+        "Service Calls",
+        "Startup",
+        "Commissioning",
+        "Point-to-Point Checkout",
+        "Customer Service",
+        "Field Service",
+        "Controls Diagnostics",
+        "Network Troubleshooting",
+        "BACnet Troubleshooting",
+        "Modbus Troubleshooting",
+        "Niagara Graphics",
+        "DDC Programming",
+        "VAV",
+        "AHU",
+        "Chiller Plant",
+        "Boiler Plant",
+        "Sensors",
+        "Actuators",
+        "VFDs",
+        "Work Orders",
+        "Service Reports",
+        "Emergency Service",
+        "On-Call"
+      ],
+      "industries": [
+        "BAS",
+        "HVAC Controls",
+        "HVAC Service",
+        "Building Automation",
+        "Controls Integration",
+        "Facility Services"
+      ],
+      "verticals": [
+        "Commercial",
+        "Healthcare",
+        "Education",
+        "Government",
+        "Industrial",
+        "Data Centers"
+      ],
+      "criteria": [
+        {
+          "name": "Troubleshooting/Service Experience",
+          "weight": 0.35
+        },
+        {
+          "name": "BAS/HVAC Controls Experience",
+          "weight": 0.25
+        },
+        {
+          "name": "Field Service/Customer Service",
+          "weight": 0.2
+        },
+        {
+          "name": "Programming/Commissioning",
+          "weight": 0.1
+        },
+        {
+          "name": "Certifications",
+          "weight": 0.05
+        },
+        {
+          "name": "Competitor Experience",
+          "weight": 0.05
+        }
+      ],
+      "weight_total": 1.0
+    },
+    {
+      "role": "Field Automation Specialist (PLC)",
+      "family": "PLC",
+      "job_titles": [
+        "Field Automation Specialist",
+        "PLC Technician",
+        "Automation Technician",
+        "Controls Technician",
+        "Field Service Engineer",
+        "Industrial Controls Technician"
+      ],
+      "skills": [
+        "BAS",
+        "HVAC Controls",
+        "PLC",
+        "Industrial Automation",
+        "Controls Automation",
+        "SCADA",
+        "HMI",
+        "Electrical Controls",
+        "Commissioning",
+        "Troubleshooting",
+        "Allen-Bradley",
+        "Rockwell",
+        "Siemens PLC",
+        "Mitsubishi",
+        "Omron",
+        "Beckhoff",
+        "Ignition",
+        "FactoryTalk",
+        "Wonderware",
+        "AVEVA",
+        "Electrical Troubleshooting",
+        "Panel Wiring",
+        "VFD",
+        "Servo",
+        "Motor Controls",
+        "I/O Checkout",
+        "Startup",
+        "Field Service",
+        "Control Panels",
+        "Instrumentation",
+        "Sensors",
+        "Industrial Networks",
+        "EtherNet/IP",
+        "Profinet",
+        "Modbus TCP",
+        "Ladder Logic"
+      ],
+      "industries": [
+        "Industrial Automation",
+        "Manufacturing",
+        "Process Controls",
+        "Controls Automation",
+        "Systems Integration",
+        "Electrical Controls"
+      ],
+      "verticals": [
+        "Manufacturing",
+        "Food & Beverage",
+        "Water/Wastewater",
+        "Pharmaceuticals",
+        "Packaging",
+        "Material Handling",
+        "Industrial"
+      ],
+      "criteria": [
+        {
+          "name": "PLC/Controls Experience",
+          "weight": 0.35
+        },
+        {
+          "name": "Field Commissioning/Startup",
+          "weight": 0.25
+        },
+        {
+          "name": "Industrial Automation Industry",
+          "weight": 0.2
+        },
+        {
+          "name": "Electrical Troubleshooting",
+          "weight": 0.1
+        },
+        {
+          "name": "HMI/SCADA",
+          "weight": 0.05
+        },
+        {
+          "name": "Competitor Experience",
+          "weight": 0.05
+        }
+      ],
+      "weight_total": 1.0
+    },
+    {
+      "role": "Field Automation Engineer (PLC)",
+      "family": "PLC",
+      "job_titles": [
+        "Automation Engineer",
+        "Controls Engineer",
+        "PLC Engineer",
+        "Electrical Controls Engineer",
+        "Industrial Controls Engineer",
+        "Field Automation Engineer",
+        "Controls Systems Engineer"
+      ],
+      "skills": [
+        "BAS",
+        "HVAC Controls",
+        "PLC",
+        "Industrial Automation",
+        "Controls Automation",
+        "SCADA",
+        "HMI",
+        "Electrical Controls",
+        "Commissioning",
+        "Troubleshooting",
+        "Allen-Bradley",
+        "Rockwell",
+        "Siemens PLC",
+        "PLC Programming",
+        "Rockwell Studio 5000",
+        "RSLogix 5000",
+        "Siemens TIA Portal",
+        "S7",
+        "HMI Development",
+        "Ignition",
+        "FactoryTalk View",
+        "Wonderware",
+        "AVEVA",
+        "VFD",
+        "Servo",
+        "Motion Control",
+        "Robotics",
+        "Electrical Design",
+        "Panel Design",
+        "Control Narratives",
+        "I/O Lists",
+        "Startup",
+        "Debugging",
+        "Industrial Networks",
+        "EtherNet/IP",
+        "Profinet",
+        "OPC UA",
+        "SQL",
+        "Instrumentation",
+        "Process Controls"
+      ],
+      "industries": [
+        "Industrial Automation",
+        "Manufacturing",
+        "Controls Engineering",
+        "Systems Integration",
+        "Process Automation"
+      ],
+      "verticals": [
+        "Manufacturing",
+        "Semiconductor",
+        "Food Processing",
+        "Pharmaceuticals",
+        "Water/Wastewater",
+        "Packaging",
+        "Material Handling"
+      ],
+      "criteria": [
+        {
+          "name": "PLC Programming",
+          "weight": 0.35
+        },
+        {
+          "name": "Controls Design",
+          "weight": 0.2
+        },
+        {
+          "name": "Commissioning/Startup",
+          "weight": 0.2
+        },
+        {
+          "name": "Industrial Project Experience",
+          "weight": 0.15
+        },
+        {
+          "name": "HMI/SCADA Platforms",
+          "weight": 0.05
+        },
+        {
+          "name": "Competitor Experience",
+          "weight": 0.05
+        }
+      ],
+      "weight_total": 1.0
+    },
+    {
+      "role": "Automation Engineer - Development (PLC)",
+      "family": "PLC",
+      "job_titles": [
+        "Automation Engineer",
+        "PLC Software Engineer",
+        "Controls Software Engineer",
+        "Software Engineer",
+        "Automation Developer",
+        "Controls Development Engineer",
+        "Industrial Software Engineer"
+      ],
+      "skills": [
+        "BAS",
+        "HVAC Controls",
+        "PLC",
+        "Industrial Automation",
+        "Controls Automation",
+        "SCADA",
+        "HMI",
+        "Electrical Controls",
+        "Commissioning",
+        "Troubleshooting",
+        "Allen-Bradley",
+        "Rockwell",
+        "Siemens PLC",
+        "PLC Software Development",
+        "IEC 61131-3",
+        "Structured Text",
+        "Ladder Logic",
+        "Function Block",
+        "Sequential Function Chart",
+        "Reusable Code",
+        "Code Standards",
+        "Library Development",
+        "Simulation",
+        "Testing",
+        "Version Control",
+        "Git",
+        "C#",
+        "Python",
+        "SQL",
+        "OPC UA",
+        "MQTT",
+        "Ignition",
+        "SCADA Development",
+        "HMI Development",
+        "API Integration",
+        "Data Historian",
+        "Industrial IoT",
+        "Edge Devices",
+        "Controls Architecture",
+        "Automation Standards",
+        "Digital Twin",
+        "Commissioning Tools"
+      ],
+      "industries": [
+        "Industrial Automation",
+        "Robotics",
+        "Manufacturing",
+        "OEM",
+        "Process Automation",
+        "Industrial Software"
+      ],
+      "verticals": [
+        "OEM",
+        "Robotics",
+        "Semiconductor",
+        "Industrial Manufacturing",
+        "Pharmaceuticals",
+        "Packaging",
+        "Material Handling"
+      ],
+      "criteria": [
+        {
+          "name": "PLC Software Development",
+          "weight": 0.35
+        },
+        {
+          "name": "Industrial Automation Experience",
+          "weight": 0.25
+        },
+        {
+          "name": "Programming Languages/Software",
+          "weight": 0.2
+        },
+        {
+          "name": "Systems Integration",
+          "weight": 0.1
+        },
+        {
+          "name": "Architecture/Standards",
+          "weight": 0.05
+        },
+        {
+          "name": "Competitor Experience",
+          "weight": 0.05
+        }
+      ],
+      "weight_total": 1.0
+    }
+  ],
+  "competitors": {
+    "BAS Competitors": [
+      "Siemens",
+      "Johnson Controls",
+      "Honeywell Building Technologies",
+      "Schneider Electric",
+      "Trane Technologies",
+      "Automated Logic / Carrier",
+      "Delta Controls",
+      "Distech Controls",
+      "Alerton",
+      "KMC Controls",
+      "Climatec",
+      "Computrols",
+      "Building Controls & Solutions"
+    ],
+    "PLC / Industrial Automation": [
+      "Rockwell Automation",
+      "Siemens Digital Industries",
+      "Emerson",
+      "ABB",
+      "Schneider Electric",
+      "Beckhoff Automation",
+      "B&R Automation",
+      "Omron Automation",
+      "Mitsubishi Electric Automation",
+      "Bosch Rexroth",
+      "Maverick Technologies",
+      "E Tech Group",
+      "Wunderlich-Malec",
+      "Barry-Wehmiller Design Group",
+      "ATS Industrial Automation",
+      "Prime Controls",
+      "Concept Systems"
+    ],
+    "Mechanical Contractors": [
+      "EMCOR",
+      "Southland Industries",
+      "ACCO Engineered Systems",
+      "TDIndustries",
+      "Mesa Energy Systems",
+      "Murphy Company",
+      "MacDonald-Miller",
+      "Control Air",
+      "Harris",
+      "Comfort Systems USA",
+      "Murray Company",
+      "McKenney's",
+      "Limbach"
+    ],
+    "General Contractors": [
+      "Turner Construction",
+      "DPR Construction",
+      "Whiting-Turner",
+      "Skanska",
+      "Suffolk Construction",
+      "Gilbane",
+      "Clark Construction",
+      "McCarthy Building Companies",
+      "JE Dunn",
+      "Hensel Phelps",
+      "Mortenson",
+      "Balfour Beatty",
+      "Holder Construction",
+      "PCL Construction",
+      "Tutor Perini"
+    ]
+  }
+}
