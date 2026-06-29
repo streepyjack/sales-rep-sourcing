@@ -72,6 +72,18 @@
         "Life Sciences",
         "Mission Critical"
       ],
+      "industry_ids": [
+        "48",
+        "122",
+        "147",
+        "406",
+        "413",
+        "435",
+        "453",
+        "923",
+        "983",
+        "3241"
+      ],
       "criteria": [
         {
           "name": "Relevant Industry: BAS/HVAC Controls",
@@ -97,8 +109,7 @@
           "name": "Geographic Location",
           "weight": 0.05
         }
-      ],
-      "weight_total": 1.0
+      ]
     },
     {
       "role": "Estimator (BAS)",
@@ -168,6 +179,17 @@
         "Industrial",
         "Life Sciences"
       ],
+      "industry_ids": [
+        "48",
+        "147",
+        "406",
+        "413",
+        "435",
+        "453",
+        "923",
+        "983",
+        "2468"
+      ],
       "criteria": [
         {
           "name": "Estimating Experience",
@@ -193,8 +215,7 @@
           "name": "Competitor Experience",
           "weight": 0.05
         }
-      ],
-      "weight_total": 1.0
+      ]
     },
     {
       "role": "Sales Manager (BAS)",
@@ -261,6 +282,14 @@
         "Education",
         "Government"
       ],
+      "industry_ids": [
+        "122",
+        "147",
+        "453",
+        "923",
+        "983",
+        "3241"
+      ],
       "criteria": [
         {
           "name": "Sales Leadership",
@@ -286,8 +315,7 @@
           "name": "Competitor Experience",
           "weight": 0.05
         }
-      ],
-      "weight_total": 1.0
+      ]
     },
     {
       "role": "Operations Manager (BAS)",
@@ -354,6 +382,16 @@
         "Industrial",
         "Government"
       ],
+      "industry_ids": [
+        "48",
+        "122",
+        "147",
+        "406",
+        "413",
+        "453",
+        "923",
+        "983"
+      ],
       "criteria": [
         {
           "name": "Leadership/People Management",
@@ -379,8 +417,7 @@
           "name": "Competitor Experience",
           "weight": 0.05
         }
-      ],
-      "weight_total": 1.0
+      ]
     },
     {
       "role": "Project Manager (BAS)",
@@ -452,6 +489,16 @@
         "Industrial",
         "Life Sciences"
       ],
+      "industry_ids": [
+        "48",
+        "147",
+        "406",
+        "413",
+        "435",
+        "453",
+        "923",
+        "983"
+      ],
       "criteria": [
         {
           "name": "BAS/HVAC Controls Experience",
@@ -477,8 +524,7 @@
           "name": "Competitor Experience",
           "weight": 0.05
         }
-      ],
-      "weight_total": 1.0
+      ]
     },
     {
       "role": "Systems Specialist (BAS)",
@@ -547,6 +593,13 @@
         "Data Centers",
         "Government"
       ],
+      "industry_ids": [
+        "122",
+        "147",
+        "453",
+        "923",
+        "983"
+      ],
       "criteria": [
         {
           "name": "BAS Platform Experience",
@@ -572,8 +625,7 @@
           "name": "Competitor Experience",
           "weight": 0.05
         }
-      ],
-      "weight_total": 1.0
+      ]
     },
     {
       "role": "Design Engineer (BAS)",
@@ -643,6 +695,16 @@
         "Life Sciences",
         "Industrial"
       ],
+      "industry_ids": [
+        "48",
+        "135",
+        "147",
+        "406",
+        "413",
+        "453",
+        "923",
+        "983"
+      ],
       "criteria": [
         {
           "name": "Controls Design Experience",
@@ -668,8 +730,7 @@
           "name": "Competitor Experience",
           "weight": 0.05
         }
-      ],
-      "weight_total": 1.0
+      ]
     },
     {
       "role": "Project Engineer (BAS)",
@@ -737,6 +798,16 @@
         "Government",
         "Industrial"
       ],
+      "industry_ids": [
+        "48",
+        "147",
+        "406",
+        "413",
+        "435",
+        "453",
+        "923",
+        "983"
+      ],
       "criteria": [
         {
           "name": "Project Engineering Experience",
@@ -762,8 +833,7 @@
           "name": "Competitor Experience",
           "weight": 0.05
         }
-      ],
-      "weight_total": 1.0
+      ]
     },
     {
       "role": "Programmer (BAS)",
@@ -835,6 +905,12 @@
         "Industrial",
         "Life Sciences"
       ],
+      "industry_ids": [
+        "147",
+        "453",
+        "923",
+        "983"
+      ],
       "criteria": [
         {
           "name": "BAS Programming Experience",
@@ -860,8 +936,7 @@
           "name": "Competitor Experience",
           "weight": 0.05
         }
-      ],
-      "weight_total": 1.0
+      ]
     },
     {
       "role": "Service Manager (BAS)",
@@ -932,6 +1007,13 @@
         "Industrial",
         "Data Centers"
       ],
+      "industry_ids": [
+        "122",
+        "147",
+        "453",
+        "923",
+        "983"
+      ],
       "criteria": [
         {
           "name": "Service Leadership",
@@ -957,8 +1039,7 @@
           "name": "Competitor Experience",
           "weight": 0.05
         }
-      ],
-      "weight_total": 1.0
+      ]
     },
     {
       "role": "Service Contract Manager (BAS)",
@@ -1025,6 +1106,14 @@
         "Industrial",
         "Data Centers"
       ],
+      "industry_ids": [
+        "122",
+        "147",
+        "453",
+        "923",
+        "983",
+        "3241"
+      ],
       "criteria": [
         {
           "name": "Contract Management/Renewals",
@@ -1050,8 +1139,7 @@
           "name": "Competitor Experience",
           "weight": 0.05
         }
-      ],
-      "weight_total": 1.0
+      ]
     },
     {
       "role": "Service Systems Specialist (BAS)",
@@ -1121,6 +1209,13 @@
         "Industrial",
         "Data Centers"
       ],
+      "industry_ids": [
+        "122",
+        "147",
+        "453",
+        "923",
+        "983"
+      ],
       "criteria": [
         {
           "name": "Troubleshooting/Service Experience",
@@ -1146,8 +1241,7 @@
           "name": "Competitor Experience",
           "weight": 0.05
         }
-      ],
-      "weight_total": 1.0
+      ]
     },
     {
       "role": "Field Automation Specialist (PLC)",
@@ -1215,6 +1309,14 @@
         "Material Handling",
         "Industrial"
       ],
+      "industry_ids": [
+        "25",
+        "55",
+        "135",
+        "147",
+        "983",
+        "2468"
+      ],
       "criteria": [
         {
           "name": "PLC/Controls Experience",
@@ -1240,8 +1342,7 @@
           "name": "Competitor Experience",
           "weight": 0.05
         }
-      ],
-      "weight_total": 1.0
+      ]
     },
     {
       "role": "Field Automation Engineer (PLC)",
@@ -1313,6 +1414,13 @@
         "Packaging",
         "Material Handling"
       ],
+      "industry_ids": [
+        "25",
+        "55",
+        "135",
+        "147",
+        "983"
+      ],
       "criteria": [
         {
           "name": "PLC Programming",
@@ -1338,8 +1446,7 @@
           "name": "Competitor Experience",
           "weight": 0.05
         }
-      ],
-      "weight_total": 1.0
+      ]
     },
     {
       "role": "Automation Engineer - Development (PLC)",
@@ -1414,6 +1521,14 @@
         "Packaging",
         "Material Handling"
       ],
+      "industry_ids": [
+        "24",
+        "25",
+        "55",
+        "135",
+        "147",
+        "3247"
+      ],
       "criteria": [
         {
           "name": "PLC Software Development",
@@ -1439,8 +1554,7 @@
           "name": "Competitor Experience",
           "weight": 0.05
         }
-      ],
-      "weight_total": 1.0
+      ]
     }
   ],
   "competitors": {
@@ -1510,5 +1624,33 @@
       "PCL Construction",
       "Tutor Perini"
     ]
-  }
+  },
+  "industry_labels": {
+    "147": "Automation Machinery Manufacturing",
+    "923": "HVAC and Refrigeration Equipment Manufacturing",
+    "453": "Building Equipment Contractors",
+    "983": "Measuring and Control Instrument Manufacturing",
+    "2468": "Electrical Equipment Manufacturing",
+    "122": "Facilities Services",
+    "406": "Building Construction",
+    "413": "Nonresidential Building Construction",
+    "48": "Construction",
+    "435": "Specialty Trade Contractors",
+    "25": "Manufacturing",
+    "135": "Industrial Machinery Manufacturing",
+    "55": "Machinery Manufacturing",
+    "24": "Computers and Electronics Manufacturing",
+    "7": "Semiconductor Manufacturing",
+    "3247": "Robot Manufacturing",
+    "3241": "Renewable Energy Equipment Manufacturing",
+    "57": "Oil and Gas"
+  },
+  "industry_ids_baseline": [
+    "147",
+    "923",
+    "453",
+    "983",
+    "2468",
+    "382"
+  ]
 }

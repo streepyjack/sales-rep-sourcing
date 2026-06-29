@@ -708,6 +708,10 @@ with tab_search:
             st.markdown(f"**Skills / terms:** {', '.join(_role['skills'][:18])}"
                         + ("…" if len(_role['skills']) > 18 else ""))
             st.markdown(f"**Industries:** {', '.join(_role['industries'])}")
+            _ind_labels = ROLE_DATA.get("industry_labels", {})
+            _filtered = [_ind_labels.get(i, i) for i in _role.get("industry_ids", [])]
+            if _filtered:
+                st.markdown(f"**LinkedIn industry filter:** {', '.join(_filtered)}")
             st.markdown(f"**Verticals:** {', '.join(_role['verticals'])}")
             st.markdown("**Fit Score weighting:** "
                         + " · ".join(f"{c['name']} {round(c['weight']*100)}%" for c in _role['criteria']))
@@ -744,10 +748,11 @@ with tab_search:
             role = ROLES[role_name]
             with st.spinner(f"Searching LinkedIn for {role_name}… this usually takes a minute or two."):
                 client = ApifyClient(st.secrets["APIFY_TOKEN"])
-                # Target the search with the selected role's job titles.
+                # Target the search with the selected role's job titles + industries.
                 run_input = dict(BASE_INPUT)
                 run_input["currentJobTitles"] = role["job_titles"]
                 run_input["pastJobTitles"] = role["job_titles"]
+                run_input["industryIds"] = role.get("industry_ids") or BASE_INPUT["industryIds"]
                 run_input["locations"] = [location]
                 run_input["maxItems"] = size
                 run = client.task(TASK_ID).call(task_input=run_input)
