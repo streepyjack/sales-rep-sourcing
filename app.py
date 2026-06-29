@@ -751,6 +751,8 @@ with tab_search:
                 run_input["locations"] = [location]
                 run_input["maxItems"] = size
                 run = client.task(TASK_ID).call(task_input=run_input)
+                run_status = run.get("status") if isinstance(run, dict) else getattr(run, "status", None)
+                run_id = run.get("id") if isinstance(run, dict) else getattr(run, "id", None)
                 ds = _dsid(run)
                 items = [flatten(i) for i in client.dataset(ds).iterate_items()]
             recs = []
@@ -764,8 +766,22 @@ with tab_search:
                 rec['Fit Score'] = role_fit_score(d, rec, role, location, comp_sig)
                 recs.append(rec)
             if not recs:
-                st.error("No results came back. This usually means the Apify free-tier run limit was hit "
-                         "or the location returned no matches. Check the Apify console.")
+                st.error(f"No usable profiles came back for **{role_name}** in **{location}**.")
+                st.markdown(
+                    f"- Apify run status: **{run_status}**\n"
+                    f"- Raw items returned by the actor: **{len(items)}**\n"
+                    f"- Of those, profiles with a LinkedIn URL: **{len(recs)}**\n"
+                    f"- Run id: `{run_id}`")
+                if len(items) > 0:
+                    st.warning("The actor returned items but none had a LinkedIn URL — the profile "
+                               "field names may have changed. Send me the run id above and I'll map it.")
+                elif run_status and run_status != "SUCCEEDED":
+                    st.warning(f"The run ended as **{run_status}**, not SUCCEEDED — this usually means the "
+                               "Apify monthly free-tier limit was hit or the actor errored. Check the Apify console.")
+                else:
+                    st.warning("The run succeeded but matched nobody. This location + role combination may be "
+                               "too narrow (e.g. a small town with an abbreviated state). Try a larger metro "
+                               "(e.g. **Boston** instead of Chelmsford, MA) or a broader role, then refine.")
                 st.stop()
             # highest Fit Score first (ties broken by company)
             recs.sort(key=lambda r: (-r['Fit Score'], r['Current Company']))
