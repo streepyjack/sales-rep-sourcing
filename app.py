@@ -579,11 +579,24 @@ def _ws(title, headers):
     _maybe_format(ws, title, headers, force=created)
     return ws
 
+# Cache sheet reads so we don't hit Google's per-minute read quota on every rerun.
+# Cleared explicitly after any write so the UI still reflects changes immediately.
+@st.cache_data(ttl=120, show_spinner=False)
+def _read_records(title):
+    hdrs = {"Master": MASTER_HEADERS, "Searches": SEARCH_HEADERS, "Shortlist": SHORTLIST_HEADERS}
+    return _ws(title, hdrs[title]).get_all_records()
+
+def _invalidate_reads():
+    try:
+        _read_records.clear()
+    except Exception:
+        pass
+
 def load_master():
     """Return list of dicts (oldest first) for every unique rep saved so far."""
     if gs_configured():
         try:
-            return _ws("Master", MASTER_HEADERS).get_all_records()
+            return _read_records("Master")
         except Exception as e:
             st.warning(f"Couldn't read the master sheet: {e}")
             return []
@@ -593,7 +606,7 @@ def load_searches():
     """Return list of dicts (oldest first) for every search run so far."""
     if gs_configured():
         try:
-            return _ws("Searches", SEARCH_HEADERS).get_all_records()
+            return _read_records("Searches")
         except Exception as e:
             st.warning(f"Couldn't read search history: {e}")
             return []
@@ -621,6 +634,7 @@ def save_master(rows):
         header = _ensure_columns(ws, MASTER_HEADERS)   # adds Fit Score column if absent
         ws.append_rows([[r.get(h, "") for h in header] for r in rows],
                        value_input_option="USER_ENTERED")
+        _invalidate_reads()
     else:
         st.session_state.setdefault("master", []).extend(rows)
 
@@ -630,6 +644,7 @@ def save_search(rec):
         header = _ensure_columns(ws, SEARCH_HEADERS)   # adds Role column if absent
         ws.append_row([rec.get(h, "") for h in header],
                       value_input_option="USER_ENTERED")
+        _invalidate_reads()
     else:
         st.session_state.setdefault("searches", []).append(rec)
 
@@ -640,7 +655,7 @@ SHORTLIST_HEADERS = ["Added", "Sourced Role", "Fit Score", "First Name", "Last N
 def load_shortlist():
     if gs_configured():
         try:
-            return _ws("Shortlist", SHORTLIST_HEADERS).get_all_records()
+            return _read_records("Shortlist")
         except Exception as e:
             st.warning(f"Couldn't read the shortlist: {e}")
             return []
@@ -657,6 +672,7 @@ def add_to_shortlist(rows):
         header = _ensure_columns(ws, SHORTLIST_HEADERS)
         ws.append_rows([[r.get(h, "") for h in header] for r in fresh],
                        value_input_option="USER_ENTERED")
+        _invalidate_reads()
     else:
         st.session_state.setdefault("shortlist", []).extend(fresh)
     return len(fresh)
@@ -668,6 +684,7 @@ def replace_shortlist(rows):
         ws.clear()
         ws.update(range_name="A1",
                   values=[SHORTLIST_HEADERS] + [[r.get(h, "") for h in SHORTLIST_HEADERS] for r in rows])
+        _invalidate_reads()
     else:
         st.session_state["shortlist"] = list(rows)
 
