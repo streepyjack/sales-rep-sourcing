@@ -830,7 +830,12 @@ with tab_search:
             save_search(search_rec)
             summary = {**search_rec, 'MasterTotal': len(master) + len(new_recs)}
 
-            df = pd.DataFrame(recs, columns=COLUMNS)
+            # flag which found people are new vs. already in the master (display only)
+            new_urls = {_norm_url(r['LinkedIn URL']) for r in new_recs}
+            for r in recs:
+                r['New?'] = '🆕 New' if _norm_url(r.get('LinkedIn URL', '')) in new_urls else '• In master'
+            disp_cols = ['Fit Score', 'New?'] + [c for c in COLUMNS if c != 'Fit Score']
+            df = pd.DataFrame(recs, columns=disp_cols)
             n_comp = sum(1 for r in recs if r.get('Competitor'))
             where = "remotely (nationwide)" if remote else f"near {location}"
             otw_tag = " &nbsp;·&nbsp; open to work" if otw_only else ""
@@ -847,7 +852,7 @@ with tab_search:
             m4.metric("Master total", summary['MasterTotal'])
 
             st.dataframe(df, use_container_width=True, hide_index=True)
-            st.download_button("⬇ Download Excel", build_excel_bytes(recs, summary=summary),
+            st.download_button("⬇ Download Excel", build_excel_bytes(recs, cols=disp_cols, summary=summary),
                                file_name=f"sales_reps_{location.replace(' ','_')}_{today}.xlsx",
                                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
         except Exception as e:
@@ -905,12 +910,45 @@ with tab_master:
         if 'Fit Score' in mdf.columns:  # highest Fit Score first
             mdf = (mdf.assign(_fs=pd.to_numeric(mdf['Fit Score'], errors='coerce').fillna(-1))
                       .sort_values('_fs', ascending=False).drop(columns='_fs').reset_index(drop=True))
-        st.markdown(f'<div class="ae-result">📒 {len(mdf)} unique reps in the master list</div>',
+
+        # ---- filters ----
+        with st.container(border=True):
+            roles_present = sorted(x for x in mdf.get('Sourced Role', pd.Series(dtype=str)).dropna().unique() if x)
+            f1, f2 = st.columns([2, 1])
+            sel_roles = f1.multiselect("Filter by role", roles_present, default=[],
+                                       placeholder="All roles")
+            min_fit = f2.slider("Min Fit Score", 0, 100, 0, 5)
+            g1, g2, g3 = st.columns([2, 1, 1])
+            q = g1.text_input("Search name / company / title / location", placeholder="type to filter…")
+            only_otw = g2.checkbox("Open to Work only")
+            only_comp = g3.checkbox("From competitors")
+
+        fdf = mdf
+        if sel_roles and 'Sourced Role' in fdf:
+            fdf = fdf[fdf['Sourced Role'].isin(sel_roles)]
+        if 'Fit Score' in fdf and min_fit > 0:
+            fdf = fdf[pd.to_numeric(fdf['Fit Score'], errors='coerce').fillna(0) >= min_fit]
+        if only_otw and 'Open To Work' in fdf:
+            fdf = fdf[fdf['Open To Work'] == 'Yes']
+        if only_comp and 'Competitor' in fdf:
+            fdf = fdf[fdf['Competitor'].astype(str).str.strip() != '']
+        if q:
+            ql = q.lower()
+            search_cols = [c for c in ['First Name', 'Last Name', 'Current Company',
+                                       'Current Title', 'Location'] if c in fdf]
+            mask = pd.Series(False, index=fdf.index)
+            for c in search_cols:
+                mask |= fdf[c].astype(str).str.lower().str.contains(ql, na=False, regex=False)
+            fdf = fdf[mask]
+        fdf = fdf.reset_index(drop=True)
+
+        n_filtered = " (filtered)" if len(fdf) != len(mdf) else ""
+        st.markdown(f'<div class="ae-result">📒 Showing {len(fdf)} of {len(mdf)} unique reps{n_filtered}</div>',
                     unsafe_allow_html=True)
-        st.dataframe(mdf, use_container_width=True, hide_index=True)
+        st.dataframe(fdf, use_container_width=True, hide_index=True)
         stamp = datetime.date.today().isoformat()
-        st.download_button("⬇ Download full master (Excel)",
-                           build_excel_bytes(mdf.to_dict('records'), cols=order),
+        st.download_button("⬇ Download master (Excel)",
+                           build_excel_bytes(fdf.to_dict('records'), cols=order),
                            file_name=f"sales_reps_master_{stamp}.xlsx",
                            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
                            key="dl_master")
