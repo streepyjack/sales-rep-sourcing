@@ -749,9 +749,14 @@ def _auth_configured():
 
 def _user_email():
     try:
-        return (st.user.get("email") or st.user.get("preferred_username") or "").lower()
+        u = st.user
+        for k in ("email", "preferred_username", "upn", "unique_name"):
+            v = u.get(k) if hasattr(u, "get") else getattr(u, k, None)
+            if v:
+                return str(v).lower()
     except Exception:
-        return ""
+        pass
+    return ""
 
 def require_login():
     """Gate the app behind Microsoft SSO once the [auth] secrets are configured.
@@ -765,8 +770,12 @@ def require_login():
         st.stop()
     email = _user_email()
     if ALLOWED_EMAIL_DOMAIN and not email.endswith("@" + ALLOWED_EMAIL_DOMAIN):
-        st.error(f"Access is restricted to @{ALLOWED_EMAIL_DOMAIN} accounts. "
-                 f"You're signed in as {email or 'an unrecognized account'}.")
+        st.error(f"Access is restricted to @{ALLOWED_EMAIL_DOMAIN} accounts.")
+        st.caption(f"Detected sign-in: {email or '(no email claim returned)'}")
+        try:
+            st.caption("Claims returned: " + ", ".join(sorted(dict(st.user).keys())))
+        except Exception:
+            pass
         st.button("Sign out", on_click=st.logout)
         st.stop()
 
