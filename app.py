@@ -1348,7 +1348,7 @@ with tab_shortlist:
                            "You'll sign in with your Albireo account and approve, then land back here.")
                 _url = graph_auth_url()
                 st.markdown(
-                    f'<a href="{_url}" target="_self" style="display:inline-block;background:{NAVY};color:#fff;'
+                    f'<a href="{_url}" target="_top" style="display:inline-block;background:{NAVY};color:#fff;'
                     f'padding:11px 20px;border-radius:9px;text-decoration:none;font-weight:700;">'
                     f'🔗 Connect Outlook</a>', unsafe_allow_html=True)
             else:
