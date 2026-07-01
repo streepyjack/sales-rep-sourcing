@@ -1,0 +1,42 @@
+{
+  "_comment": "Each preset location expands to a metro-area name plus nearby cities (~50 mi). Sent to the LinkedIn search as an OR list, so coverage = the metro if it resolves, else the surrounding cities. Also used to give location Fit-Score credit to anyone in the area. Edit freely to tune coverage.",
+
+  "Dallas-Fort Worth": ["Dallas-Fort Worth Metroplex", "Dallas, Texas", "Fort Worth, Texas", "Plano, Texas", "Irving, Texas", "Arlington, Texas"],
+  "Dallas": ["Dallas-Fort Worth Metroplex", "Dallas, Texas", "Plano, Texas", "Irving, Texas", "Richardson, Texas"],
+  "Fort Worth": ["Dallas-Fort Worth Metroplex", "Fort Worth, Texas", "Arlington, Texas", "Grand Prairie, Texas"],
+  "Austin": ["Greater Austin", "Austin, Texas", "Round Rock, Texas", "Cedar Park, Texas", "Georgetown, Texas"],
+  "Houston": ["Greater Houston", "Houston, Texas", "Sugar Land, Texas", "The Woodlands, Texas", "Pearland, Texas"],
+  "San Antonio": ["Greater San Antonio", "San Antonio, Texas", "New Braunfels, Texas", "Schertz, Texas"],
+  "Texas": ["Texas"],
+
+  "Redmond, WA": ["Greater Seattle Area", "Seattle, Washington", "Bellevue, Washington", "Redmond, Washington", "Kirkland, Washington"],
+  "Vancouver, WA": ["Portland, Oregon Metropolitan Area", "Portland, Oregon", "Vancouver, Washington", "Beaverton, Oregon", "Gresham, Oregon"],
+  "Anaheim, CA": ["Greater Los Angeles Area", "Anaheim, California", "Santa Ana, California", "Irvine, California", "Long Beach, California", "Los Angeles, California"],
+  "Poway, CA": ["Greater San Diego Area", "San Diego, California", "Poway, California", "Escondido, California", "El Cajon, California"],
+  "Tempe, AZ": ["Greater Phoenix Area", "Phoenix, Arizona", "Tempe, Arizona", "Mesa, Arizona", "Scottsdale, Arizona", "Chandler, Arizona"],
+  "Tucson, AZ": ["Tucson, Arizona", "Oro Valley, Arizona", "Marana, Arizona"],
+  "Salt Lake City, UT": ["Salt Lake City Metropolitan Area", "Salt Lake City, Utah", "Sandy, Utah", "West Valley City, Utah", "Provo, Utah"],
+  "Denver, CO": ["Denver Metropolitan Area", "Denver, Colorado", "Aurora, Colorado", "Lakewood, Colorado", "Boulder, Colorado"],
+  "Omaha, NE": ["Omaha Metropolitan Area", "Omaha, Nebraska", "Council Bluffs, Iowa", "Bellevue, Nebraska"],
+  "Huntsville, AL": ["Huntsville-Decatur Area", "Huntsville, Alabama", "Decatur, Alabama", "Madison, Alabama"],
+  "Hoover, AL": ["Greater Birmingham, Alabama Area", "Birmingham, Alabama", "Hoover, Alabama", "Vestavia Hills, Alabama"],
+  "Montgomery, AL": ["Montgomery, Alabama", "Prattville, Alabama"],
+  "Tampa, FL": ["Tampa Bay Area", "Tampa, Florida", "St. Petersburg, Florida", "Clearwater, Florida", "Brandon, Florida"],
+  "Fort Lauderdale, FL": ["Miami-Fort Lauderdale Area", "Fort Lauderdale, Florida", "Miami, Florida", "Pompano Beach, Florida", "Hollywood, Florida"],
+  "Miami, FL": ["Miami-Fort Lauderdale Area", "Miami, Florida", "Hialeah, Florida", "Fort Lauderdale, Florida", "Coral Gables, Florida"],
+  "Moosic, PA": ["Scranton, Pennsylvania", "Wilkes-Barre, Pennsylvania", "Moosic, Pennsylvania", "Pittston, Pennsylvania"],
+  "Sterling, VA": ["Washington DC-Baltimore Area", "Sterling, Virginia", "Reston, Virginia", "Ashburn, Virginia", "Herndon, Virginia", "Washington, District of Columbia"],
+  "New Castle, DE": ["Wilmington, Delaware", "New Castle, Delaware", "Newark, Delaware", "Philadelphia, Pennsylvania"],
+  "Gambrills, MD": ["Washington DC-Baltimore Area", "Baltimore, Maryland", "Annapolis, Maryland", "Gambrills, Maryland", "Columbia, Maryland"],
+  "Edison, NJ": ["New York City Metropolitan Area", "Edison, New Jersey", "New Brunswick, New Jersey", "Woodbridge, New Jersey", "Newark, New Jersey"],
+  "New York City, NY": ["New York City Metropolitan Area", "New York, New York", "Jersey City, New Jersey", "Newark, New Jersey", "Yonkers, New York", "White Plains, New York"],
+  "Norwood, MA": ["Greater Boston", "Boston, Massachusetts", "Norwood, Massachusetts", "Dedham, Massachusetts", "Quincy, Massachusetts"],
+  "Chelmsford, MA": ["Greater Boston", "Boston, Massachusetts", "Lowell, Massachusetts", "Chelmsford, Massachusetts", "Nashua, New Hampshire"],
+
+  "London, United Kingdom": ["Greater London", "London, England, United Kingdom", "Croydon, England, United Kingdom", "Watford, England, United Kingdom"],
+  "Westerham, United Kingdom": ["Greater London", "Westerham, England, United Kingdom", "Sevenoaks, England, United Kingdom", "Bromley, England, United Kingdom"],
+  "Scotland, United Kingdom": ["Scotland, United Kingdom", "Glasgow, Scotland, United Kingdom", "Edinburgh, Scotland, United Kingdom"],
+  "Midlands, United Kingdom": ["West Midlands, United Kingdom", "Birmingham, England, United Kingdom", "Coventry, England, United Kingdom", "Wolverhampton, England, United Kingdom"],
+
+  "Remote": ["United States"]
+}

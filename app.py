@@ -32,6 +32,33 @@ LOCATION_PRESETS = [
     "Midlands, United Kingdom",
 ]
 
+# Each location expands to its metropolitan area + nearby cities (~50 mi), sent to the
+# search as an OR list so we cover the metro (and, if the metro name doesn't resolve,
+# the surrounding cities). Map is tunable in location_areas.json.
+@st.cache_data(show_spinner=False)
+def load_location_areas():
+    try:
+        with open(os.path.join(os.path.dirname(__file__), "location_areas.json"), encoding="utf-8") as f:
+            return {k: v for k, v in json.load(f).items() if not k.startswith("_")}
+    except Exception:
+        return {}
+
+LOCATION_AREAS = load_location_areas()
+
+def expand_locations(locs):
+    """Expand chosen locations to their metro-area + nearby-city OR list. Unknown /
+    custom locations pass through as-is ('Remote' -> nationwide United States)."""
+    out = []
+    for loc in locs:
+        area = LOCATION_AREAS.get(loc)
+        if area:
+            out.extend(area)
+        elif str(loc).strip().lower() == "remote":
+            out.append("United States")
+        else:
+            out.append(loc)
+    return list(dict.fromkeys(out))
+
 # Fixed search configuration (your verticals). Location + maxItems are set per run
 # from the UI below; everything else stays locked so targeting never drifts.
 TITLES = ["Sales Rep", "PLC", "Data Centers", "Power Quality", "Building Automation",
@@ -842,6 +869,8 @@ with tab_search:
         list(sel_locs) + [x.strip() for x in custom_locs.split(';') if x.strip()]))
 
     otw_only = st.checkbox('🟢 Only show people flagged "Open to Work"')
+    if any(s.strip().lower() != "remote" for s in selected_locations):
+        st.caption("📍 Each location also covers its surrounding metro area / ~50-mile radius.")
     if any(s.strip().lower() == "remote" for s in selected_locations):
         st.caption("🌐 Remote = nationwide (United States) search; it won't penalize anyone by location.")
 
@@ -866,8 +895,8 @@ with tab_search:
             # location from scoring, otherwise we score by the best-matching city.
             specifics = [s for s in selected_locations if s.strip().lower() != "remote"]
             remote_only = not specifics
-            search_locations = list(dict.fromkeys(
-                ("United States" if s.strip().lower() == "remote" else s) for s in selected_locations))
+            # expand each pick to its metro area + nearby cities (~50 mi) for coverage
+            search_locations = expand_locations(selected_locations)[:40]
             with st.spinner(f"Searching LinkedIn for {role_name}… this usually takes a minute or two."):
                 client = ApifyClient(st.secrets["APIFY_TOKEN"])
                 # Target the search with the selected role's job titles + industries.
@@ -893,8 +922,9 @@ with tab_search:
                 rec = condense(d)
                 comp_name, comp_sig = _competitor_info(d, rec)
                 rec['Competitor'] = comp_name
-                # Fit Score uses the selected role's own criteria + weights.
-                rec['Fit Score'] = role_fit_score(d, rec, role, selected_locations, comp_sig)
+                # Fit Score uses the selected role's own criteria + weights; the expanded
+                # location list gives credit to anyone in the metro / ~50-mile radius.
+                rec['Fit Score'] = role_fit_score(d, rec, role, search_locations, comp_sig)
                 recs.append(rec)
             if not recs:
                 st.error(f"No usable profiles came back for **{role_name}** in **{location_label}**.")
