@@ -730,7 +730,7 @@ with tab_search:
     with col2:
         with st.container(border=True):
             st.markdown('<p class="ae-label">🎯 Number of Profiles</p>', unsafe_allow_html=True)
-            st.markdown('<p class="ae-help">How many reps to pull this run</p>', unsafe_allow_html=True)
+            st.markdown('<p class="ae-help">How many matching reps you want this run</p>', unsafe_allow_html=True)
             size = st.slider("Number of profiles to pull", 10, 200, 25, step=5, label_visibility="collapsed")
 
     otw_only = st.checkbox('🟢 Only show people flagged "Open to Work"')
@@ -764,7 +764,11 @@ with tab_search:
                 run_input["pastJobTitles"] = role["job_titles"]
                 run_input["industryIds"] = role.get("industry_ids") or BASE_INPUT["industryIds"]
                 run_input["locations"] = [search_location]
-                run_input["maxItems"] = size
+                # Backfill (conservative, up to ~2x): over-pull so that after dropping
+                # profiles with no URL — and non-open-to-work people when that filter is
+                # on — we can still land on the requested number of matching results.
+                overpull = 2.0 if otw_only else 1.2
+                run_input["maxItems"] = min(int(round(size * overpull)), 400)
                 run = client.task(TASK_ID).call(task_input=run_input)
                 run_status = run.get("status") if isinstance(run, dict) else getattr(run, "status", None)
                 run_id = run.get("id") if isinstance(run, dict) else getattr(run, "id", None)
@@ -808,6 +812,8 @@ with tab_search:
                     st.stop()
             # highest Fit Score first (ties broken by company)
             recs.sort(key=lambda r: (-r['Fit Score'], r['Current Company']))
+            # backfill target: keep the best `size` matching results (we over-pulled above)
+            recs = recs[:size]
 
             # ---- dedup against the running master list ----
             master = load_master()
@@ -852,6 +858,10 @@ with tab_search:
             m4.metric("Master total", summary['MasterTotal'])
 
             st.dataframe(df, use_container_width=True, hide_index=True)
+            if len(df) < size:
+                st.caption(f"ℹ️ Only {len(df)} matched — the {role_name}"
+                           f"{' open-to-work' if otw_only else ''} pool for {location} is smaller than "
+                           f"the {size} requested (backfill already over-pulled to try to reach it).")
             st.download_button("⬇ Download Excel", build_excel_bytes(recs, cols=disp_cols, summary=summary),
                                file_name=f"sales_reps_{location.replace(' ','_')}_{today}.xlsx",
                                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
