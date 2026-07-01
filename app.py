@@ -322,7 +322,22 @@ def _location_fraction(cand_loc, target_loc):
     # state-only target (e.g. "Texas") — being in that state is a full match
     return 1.0 if any(s in cand for s in states) else 0.0
 
-def role_fit_score(d, rec, role, target_location, comp_signal):
+def _location_fraction_multi(cand_loc, targets):
+    """Best location match across the selected target locations (0..1). Remote /
+    nationwide targets don't contribute; if ALL targets are remote, returns None
+    so location is dropped from the score (nobody penalized)."""
+    specifics = [t for t in (targets or [])
+                 if str(t).strip().lower() not in ("remote", "united states", "")]
+    if not specifics:
+        return None
+    best = 0.0
+    for t in specifics:
+        f = _location_fraction(cand_loc, t)
+        if f is not None:
+            best = max(best, f)
+    return best
+
+def role_fit_score(d, rec, role, target_locations, comp_signal):
     """0–100 fit score using the selected role's own criteria + weights. Each
     criterion maps to a computable signal (title / skills-terms / industry /
     vertical / competitor experience / location). The role-specific 'experience'
@@ -336,7 +351,7 @@ def role_fit_score(d, rec, role, target_location, comp_signal):
         'industry':   _kw_signal(role.get('industries', []), _industry_text(d) + ' ' + blob, target=2),
         'vertical':   _kw_signal(role.get('verticals', []), blob, target=2),
         'competitor': comp_signal,
-        'location':   _location_fraction(rec.get('Location', ''), target_location),
+        'location':   _location_fraction_multi(rec.get('Location', ''), target_locations),
     }
     acc = tot = 0.0
     for crit in role.get('criteria', []):
@@ -809,21 +824,26 @@ with tab_search:
     col1, col2 = st.columns(2, gap="large")
     with col1:
         with st.container(border=True):
-            st.markdown('<p class="ae-label">📍 Location</p>', unsafe_allow_html=True)
-            st.markdown('<p class="ae-help">Where to search for reps</p>', unsafe_allow_html=True)
-            choice = st.selectbox("Location", LOCATION_PRESETS + ["Custom…"], label_visibility="collapsed")
-            location = (st.text_input("Enter a location", label_visibility="collapsed",
-                                      placeholder="Type a city or metro area")
-                        if choice == "Custom…" else choice)
+            st.markdown('<p class="ae-label">📍 Location(s)</p>', unsafe_allow_html=True)
+            st.markdown('<p class="ae-help">Pick one or more — e.g. Dallas, Fort Worth, Remote</p>',
+                        unsafe_allow_html=True)
+            sel_locs = st.multiselect("Location", LOCATION_PRESETS, default=["Dallas-Fort Worth"],
+                                      label_visibility="collapsed", placeholder="Choose one or more locations…")
+            custom_locs = st.text_input("Other locations", label_visibility="collapsed",
+                                        placeholder="Add others, separated by ;  (e.g. Denver, CO; Phoenix, AZ)")
     with col2:
         with st.container(border=True):
             st.markdown('<p class="ae-label">🎯 Number of Profiles</p>', unsafe_allow_html=True)
             st.markdown('<p class="ae-help">How many matching reps you want this run</p>', unsafe_allow_html=True)
             size = st.slider("Number of profiles to pull", 10, 200, 25, step=5, label_visibility="collapsed")
 
+    # combined, de-duplicated list of chosen locations (presets + custom)
+    selected_locations = list(dict.fromkeys(
+        list(sel_locs) + [x.strip() for x in custom_locs.split(';') if x.strip()]))
+
     otw_only = st.checkbox('🟢 Only show people flagged "Open to Work"')
-    if str(location).strip().lower() == "remote":
-        st.caption("🌐 Remote = nationwide (United States) search; location won't affect the Fit Score.")
+    if any(s.strip().lower() == "remote" for s in selected_locations):
+        st.caption("🌐 Remote = nationwide (United States) search; it won't penalize anyone by location.")
 
     st.write("")
     bcol = st.columns([1, 6, 1])
@@ -836,15 +856,18 @@ with tab_search:
 
     if clicked:
         st.session_state['last_run'] = None
-        if not location:
-            st.warning("Please choose or enter a location.")
+        if not selected_locations:
+            st.warning("Please choose at least one location.")
             st.stop()
         try:
             role = ROLES[role_name]
-            # "Remote" = nationwide search, no city constraint; drop location from scoring.
-            remote = str(location).strip().lower() == "remote"
-            search_location = "United States" if remote else location
-            score_location = "" if remote else location
+            location_label = ", ".join(selected_locations)
+            # "Remote" -> nationwide (United States); a run that's ONLY remote drops
+            # location from scoring, otherwise we score by the best-matching city.
+            specifics = [s for s in selected_locations if s.strip().lower() != "remote"]
+            remote_only = not specifics
+            search_locations = list(dict.fromkeys(
+                ("United States" if s.strip().lower() == "remote" else s) for s in selected_locations))
             with st.spinner(f"Searching LinkedIn for {role_name}… this usually takes a minute or two."):
                 client = ApifyClient(st.secrets["APIFY_TOKEN"])
                 # Target the search with the selected role's job titles + industries.
@@ -852,7 +875,7 @@ with tab_search:
                 run_input["currentJobTitles"] = role["job_titles"]
                 run_input["pastJobTitles"] = role["job_titles"]
                 run_input["industryIds"] = role.get("industry_ids") or BASE_INPUT["industryIds"]
-                run_input["locations"] = [search_location]
+                run_input["locations"] = search_locations
                 # Backfill (conservative, up to ~2x): over-pull so that after dropping
                 # profiles with no URL — and non-open-to-work people when that filter is
                 # on — we can still land on the requested number of matching results.
@@ -871,10 +894,10 @@ with tab_search:
                 comp_name, comp_sig = _competitor_info(d, rec)
                 rec['Competitor'] = comp_name
                 # Fit Score uses the selected role's own criteria + weights.
-                rec['Fit Score'] = role_fit_score(d, rec, role, score_location, comp_sig)
+                rec['Fit Score'] = role_fit_score(d, rec, role, selected_locations, comp_sig)
                 recs.append(rec)
             if not recs:
-                st.error(f"No usable profiles came back for **{role_name}** in **{location}**.")
+                st.error(f"No usable profiles came back for **{role_name}** in **{location_label}**.")
                 st.markdown(
                     f"- Apify run status: **{run_status}**\n"
                     f"- Raw items returned by the actor: **{len(items)}**\n"
@@ -919,8 +942,8 @@ with tab_search:
             today = datetime.date.today().isoformat()
             now = datetime.datetime.now().isoformat(timespec='minutes').replace('T', ' ')
             save_master([{'Date Added': today, 'Sourced Role': role_name,
-                          'Search Location': location, **r} for r in new_recs])
-            search_rec = {'Timestamp': now, 'Role': role_name, 'Location': location, 'Requested': size,
+                          'Search Location': location_label, **r} for r in new_recs])
+            search_rec = {'Timestamp': now, 'Role': role_name, 'Location': location_label, 'Requested': size,
                           'Found': len(recs), 'New': len(new_recs), 'Dupes': dupes}
             save_search(search_rec)
             summary = {**search_rec, 'MasterTotal': len(master) + len(new_recs)}
@@ -932,7 +955,7 @@ with tab_search:
             disp_cols = ['Fit Score', 'New?'] + [c for c in COLUMNS if c != 'Fit Score']
             st.session_state['last_run'] = {
                 'recs': recs, 'disp_cols': disp_cols, 'summary': summary,
-                'role': role_name, 'location': location, 'remote': remote, 'otw_only': otw_only,
+                'role': role_name, 'location': location_label, 'remote': remote_only, 'otw_only': otw_only,
                 'size': size, 'new': len(new_recs), 'dupes': dupes,
                 'n_comp': sum(1 for r in recs if r.get('Competitor')),
                 'master_total': summary['MasterTotal'], 'today': today,
@@ -944,7 +967,7 @@ with tab_search:
     _run = st.session_state.get('last_run')
     if _run:
         recs = _run['recs']; disp_cols = _run['disp_cols']
-        where = "remotely (nationwide)" if _run['remote'] else f"near {_run['location']}"
+        where = "remotely (nationwide)" if _run['remote'] else f"in {_run['location']}"
         otw_tag = " &nbsp;·&nbsp; open to work" if _run['otw_only'] else ""
         st.markdown(
             f'<div class="ae-result">✓ Found {len(recs)} {_run["role"]} {where}{otw_tag}'
@@ -983,9 +1006,10 @@ with tab_search:
             st.caption(f"ℹ️ Only {len(recs)} matched — the {_run['role']}"
                        f"{' open-to-work' if _run['otw_only'] else ''} pool for {_run['location']} is smaller "
                        f"than the {_run['size']} requested (backfill already over-pulled to try to reach it).")
+        _loc_slug = re.sub(r'[^A-Za-z0-9]+', '_', str(_run['location'])).strip('_') or 'search'
         st.download_button("⬇ Download Excel",
                            build_excel_bytes(recs, cols=disp_cols, summary=_run['summary']),
-                           file_name=f"sales_reps_{str(_run['location']).replace(' ','_')}_{_run['today']}.xlsx",
+                           file_name=f"sales_reps_{_loc_slug}_{_run['today']}.xlsx",
                            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
     else:
         st.markdown(
