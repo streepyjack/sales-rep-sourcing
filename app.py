@@ -757,10 +757,29 @@ def _graph_client_id():
     except Exception:
         return ""
 
-def _msal_app():
+def _graph_client_secret():
+    try:
+        return st.secrets["auth"]["client_secret"]
+    except Exception:
+        return ""
+
+# Redirect target for the send-consent browser flow. Uses the app root (a different
+# path than Streamlit's own /oauth2callback login route) so the two don't collide.
+GRAPH_REDIRECT_URI = "https://sales-rep-sourcing.streamlit.app/"
+
+def _msal_conf_app():
     import msal
-    return msal.PublicClientApplication(
-        _graph_client_id(), authority=f"https://login.microsoftonline.com/{_graph_tenant_id()}")
+    return msal.ConfidentialClientApplication(
+        _graph_client_id(), authority=f"https://login.microsoftonline.com/{_graph_tenant_id()}",
+        client_credential=_graph_client_secret())
+
+def graph_auth_url():
+    return _msal_conf_app().get_authorization_request_url(
+        ["Mail.Send"], redirect_uri=GRAPH_REDIRECT_URI, prompt="select_account")
+
+def graph_exchange_code(code):
+    return _msal_conf_app().acquire_token_by_authorization_code(
+        code, scopes=["Mail.Send"], redirect_uri=GRAPH_REDIRECT_URI)
 
 def graph_send_mail(token, to_email, subject, body):
     """Send one message as the connected user. Returns (ok, detail)."""
@@ -930,6 +949,25 @@ if _auth_configured() and st.user.is_logged_in:
     _lc = st.columns([6, 1])
     _lc[0].caption(f"🔐 Signed in as {_user_email()}")
     _lc[1].button("Log out", on_click=st.logout, use_container_width=True)
+
+# Capture the "Connect Outlook" send-consent redirect (browser flow -> app root ?code=…)
+if "code" in st.query_params and not st.session_state.get("graph_token"):
+    try:
+        _res = graph_exchange_code(st.query_params["code"])
+        if "access_token" in _res:
+            st.session_state["graph_token"] = _res["access_token"]
+            st.session_state["graph_token_exp"] = time.time() + _res.get("expires_in", 3600) - 60
+            st.session_state.pop("graph_connect_error", None)
+            st.toast("✅ Outlook connected for sending")
+        else:
+            st.session_state["graph_connect_error"] = str(_res.get("error_description", _res))[:400]
+    except Exception as _e:
+        st.session_state["graph_connect_error"] = str(_e)[:400]
+    st.query_params.clear()
+elif "error" in st.query_params:
+    st.session_state["graph_connect_error"] = str(st.query_params.get("error_description")
+                                                   or st.query_params.get("error"))[:400]
+    st.query_params.clear()
 
 tab_search, tab_history, tab_master, tab_shortlist = st.tabs(
     ["🔎  New Search", "🕘  Previous Searches", "📒  Master List", "⭐  Shortlist"])
@@ -1300,39 +1338,19 @@ with tab_shortlist:
             st.markdown("##### ⚡ Select & send automatically")
             connected = st.session_state.get("graph_token") and time.time() < st.session_state.get("graph_token_exp", 0)
             if not connected:
-                st.caption("One-time: connect your Outlook so the app can send on your behalf (no manual step).")
-                if st.button("🔗 Connect Outlook"):
-                    try:
-                        flow = _msal_app().initiate_device_flow(scopes=["Mail.Send"])
-                        if "user_code" not in flow:
-                            st.error("Couldn't start sign-in: " + str(flow.get("error_description", flow)))
-                        else:
-                            flow["expires_at"] = time.time() + 300  # cap the wait at 5 min
-                            st.session_state["graph_flow"] = flow
-                            st.rerun()
-                    except Exception as e:
-                        st.error(f"Connect failed: {e}")
-                flow = st.session_state.get("graph_flow")
-                if flow:
-                    st.info(f"**Step 1:** open **{flow['verification_uri']}** and enter code **{flow['user_code']}**, "
-                            "then sign in with your Albireo account and approve.")
-                    if st.button("✅ I approved — finish connecting"):
-                        try:
-                            result = _msal_app().acquire_token_by_device_flow(flow)
-                            if "access_token" in result:
-                                st.session_state["graph_token"] = result["access_token"]
-                                st.session_state["graph_token_exp"] = time.time() + result.get("expires_in", 3600) - 60
-                                st.session_state.pop("graph_flow", None)
-                                st.rerun()
-                            else:
-                                err = str(result.get("error_description", result))
-                                st.error("Sign-in failed: " + err[:300])
-                                if any(k in err.lower() for k in ("admin", "consent", "aadsts65001", "aadsts900")):
-                                    st.warning("Your tenant appears to require an **admin** to approve Mail.Send — "
-                                               "that's the option-1 path. Tell me and I'll switch to the "
-                                               "admin-approved setup.")
-                        except Exception as e:
-                            st.error(f"Finish failed: {e}")
+                if st.session_state.get("graph_connect_error"):
+                    err = st.session_state["graph_connect_error"]
+                    st.error("Connecting Outlook failed: " + err)
+                    if any(k in err.lower() for k in ("admin", "consent", "aadsts65001", "aadsts9000")):
+                        st.warning("Your tenant requires an **admin** to approve Mail.Send — that's the option-1 "
+                                   "path. Tell me and I'll switch to the admin-approved setup.")
+                st.caption("One-time: connect your Outlook so the app can send on your behalf (no manual step). "
+                           "You'll sign in with your Albireo account and approve, then land back here.")
+                _url = graph_auth_url()
+                st.markdown(
+                    f'<a href="{_url}" target="_self" style="display:inline-block;background:{NAVY};color:#fff;'
+                    f'padding:11px 20px;border-radius:9px;text-decoration:none;font-weight:700;">'
+                    f'🔗 Connect Outlook</a>', unsafe_allow_html=True)
             else:
                 st.success("✅ Outlook connected — ready to send.")
                 pick_names = [f"{r.get('First Name','')} {r.get('Last Name','')} <{r.get('Email','')}>"
