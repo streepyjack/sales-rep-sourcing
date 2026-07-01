@@ -3,7 +3,8 @@ North Texas Sales Rep Sourcing — web app
 Run-and-download tool. Users pick a location and size; verticals are fixed
 (baked into the Apify task). Deploys free to Streamlit Community Cloud.
 """
-import io, datetime, re, json, os
+import io, datetime, re, json, os, zipfile
+from email.message import EmailMessage
 import pandas as pd
 import streamlit as st
 from apify_client import ApifyClient
@@ -590,6 +591,93 @@ def save_search(rec):
     else:
         st.session_state.setdefault("searches", []).append(rec)
 
+# ============================ shortlist ============================
+SHORTLIST_HEADERS = ["Added", "Sourced Role", "Fit Score", "First Name", "Last Name", "Email",
+                     "Current Title", "Current Company", "Location", "LinkedIn URL", "Status"]
+
+def load_shortlist():
+    if gs_configured():
+        try:
+            return _ws("Shortlist", SHORTLIST_HEADERS).get_all_records()
+        except Exception as e:
+            st.warning(f"Couldn't read the shortlist: {e}")
+            return []
+    return st.session_state.setdefault("shortlist", [])
+
+def add_to_shortlist(rows):
+    """Append people not already on the shortlist (deduped by LinkedIn URL)."""
+    existing = {_norm_url(r.get("LinkedIn URL", "")) for r in load_shortlist()}
+    fresh = [r for r in rows if _norm_url(r.get("LinkedIn URL", "")) not in existing]
+    if not fresh:
+        return 0
+    if gs_configured():
+        ws = _ws("Shortlist", SHORTLIST_HEADERS)
+        header = _ensure_columns(ws, SHORTLIST_HEADERS)
+        ws.append_rows([[r.get(h, "") for h in header] for r in fresh],
+                       value_input_option="USER_ENTERED")
+    else:
+        st.session_state.setdefault("shortlist", []).extend(fresh)
+    return len(fresh)
+
+def replace_shortlist(rows):
+    """Overwrite the whole shortlist (used for removals)."""
+    if gs_configured():
+        ws = _ws("Shortlist", SHORTLIST_HEADERS)
+        ws.clear()
+        ws.update(range_name="A1",
+                  values=[SHORTLIST_HEADERS] + [[r.get(h, "") for h in SHORTLIST_HEADERS] for r in rows])
+    else:
+        st.session_state["shortlist"] = list(rows)
+
+# ============================ outreach email (drafts only — no sending) ============================
+DEFAULT_SUBJECT = "Exploring a {role} opportunity at Albireo Energy"
+DEFAULT_BODY = (
+    "Hi {first_name},\n\n"
+    "I came across your background as {title} at {company} and was really impressed. "
+    "At Albireo Energy we're growing our team, and I think you could be a strong fit for a "
+    "{role} position we're hiring for.\n\n"
+    "Would you be open to a quick conversation this week?\n\n"
+    "Best regards,\n"
+    "[Your name]\n"
+    "Albireo Energy"
+)
+
+def fill_template(text, rec):
+    repl = {
+        "{first_name}": rec.get("First Name", ""), "{last_name}": rec.get("Last Name", ""),
+        "{role}": rec.get("Sourced Role", "") or rec.get("Role", ""),
+        "{title}": rec.get("Current Title", ""), "{company}": rec.get("Current Company", ""),
+    }
+    out = text or ""
+    for k, v in repl.items():
+        out = out.replace(k, str(v))
+    return out
+
+def build_eml(to, subject, body, sender):
+    m = EmailMessage()
+    if sender:
+        m["From"] = sender
+    m["To"] = to or ""
+    m["Subject"] = subject
+    m.set_content(body)
+    return m.as_bytes()
+
+def build_drafts_zip(people, subject_tmpl, body_tmpl, sender):
+    buf = io.BytesIO()
+    with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as z:
+        for i, r in enumerate(people, 1):
+            name = f"{i:02d}_{r.get('First Name','')}_{r.get('Last Name','')}".strip().replace(' ', '_')
+            z.writestr(f"{name or 'draft'}.eml",
+                       build_eml(r.get("Email", ""), fill_template(subject_tmpl, r),
+                                 fill_template(body_tmpl, r), sender))
+    buf.seek(0)
+    return buf.getvalue()
+
+def build_drafts_csv(people, subject_tmpl, body_tmpl):
+    rows = [{"To": r.get("Email", ""), "Subject": fill_template(subject_tmpl, r),
+             "Body": fill_template(body_tmpl, r)} for r in people]
+    return pd.DataFrame(rows, columns=["To", "Subject", "Body"]).to_csv(index=False).encode("utf-8")
+
 # ============================ UI ============================
 st.set_page_config(page_title="Albireo Energy · Sales Rep Sourcing", page_icon="🎯", layout="wide")
 
@@ -694,8 +782,8 @@ st.markdown("""
 </div>
 """, unsafe_allow_html=True)
 
-tab_search, tab_history, tab_master = st.tabs(
-    ["🔎  New Search", "🕘  Previous Searches", "📒  Master List"])
+tab_search, tab_history, tab_master, tab_shortlist = st.tabs(
+    ["🔎  New Search", "🕘  Previous Searches", "📒  Master List", "⭐  Shortlist"])
 
 # ------------------------------- New Search -------------------------------
 with tab_search:
@@ -747,6 +835,7 @@ with tab_search:
                 "history won't be saved between sessions. See **SETUP_GOOGLE_SHEETS.md** to connect one.")
 
     if clicked:
+        st.session_state['last_run'] = None
         if not location:
             st.warning("Please choose or enter a location.")
             st.stop()
@@ -841,38 +930,69 @@ with tab_search:
             for r in recs:
                 r['New?'] = '🆕 New' if _norm_url(r.get('LinkedIn URL', '')) in new_urls else '• In master'
             disp_cols = ['Fit Score', 'New?'] + [c for c in COLUMNS if c != 'Fit Score']
-            df = pd.DataFrame(recs, columns=disp_cols)
-            n_comp = sum(1 for r in recs if r.get('Competitor'))
-            where = "remotely (nationwide)" if remote else f"near {location}"
-            otw_tag = " &nbsp;·&nbsp; open to work" if otw_only else ""
-            st.markdown(
-                f'<div class="ae-result">✓ Found {len(df)} {role_name} {where}{otw_tag}'
-                f' &nbsp;·&nbsp; <b>{len(new_recs)} new</b> added to master'
-                f' &nbsp;·&nbsp; {dupes} already on file'
-                f' &nbsp;·&nbsp; {n_comp} from competitors</div>', unsafe_allow_html=True)
-
-            m1, m2, m3, m4 = st.columns(4)
-            m1.metric("Profiles found", len(df))
-            m2.metric("New", len(new_recs))
-            m3.metric("Duplicates", dupes)
-            m4.metric("Master total", summary['MasterTotal'])
-
-            st.dataframe(df, use_container_width=True, hide_index=True)
-            if len(df) < size:
-                st.caption(f"ℹ️ Only {len(df)} matched — the {role_name}"
-                           f"{' open-to-work' if otw_only else ''} pool for {location} is smaller than "
-                           f"the {size} requested (backfill already over-pulled to try to reach it).")
-            st.download_button("⬇ Download Excel", build_excel_bytes(recs, cols=disp_cols, summary=summary),
-                               file_name=f"sales_reps_{location.replace(' ','_')}_{today}.xlsx",
-                               mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+            st.session_state['last_run'] = {
+                'recs': recs, 'disp_cols': disp_cols, 'summary': summary,
+                'role': role_name, 'location': location, 'remote': remote, 'otw_only': otw_only,
+                'size': size, 'new': len(new_recs), 'dupes': dupes,
+                'n_comp': sum(1 for r in recs if r.get('Competitor')),
+                'master_total': summary['MasterTotal'], 'today': today,
+            }
         except Exception as e:
             st.error(f"Something went wrong talking to Apify: {e}")
+
+    # ---- render the latest run (kept in session so shortlist selection survives reruns) ----
+    _run = st.session_state.get('last_run')
+    if _run:
+        recs = _run['recs']; disp_cols = _run['disp_cols']
+        where = "remotely (nationwide)" if _run['remote'] else f"near {_run['location']}"
+        otw_tag = " &nbsp;·&nbsp; open to work" if _run['otw_only'] else ""
+        st.markdown(
+            f'<div class="ae-result">✓ Found {len(recs)} {_run["role"]} {where}{otw_tag}'
+            f' &nbsp;·&nbsp; <b>{_run["new"]} new</b> added to master'
+            f' &nbsp;·&nbsp; {_run["dupes"]} already on file'
+            f' &nbsp;·&nbsp; {_run["n_comp"]} from competitors</div>', unsafe_allow_html=True)
+
+        m1, m2, m3, m4 = st.columns(4)
+        m1.metric("Profiles found", len(recs))
+        m2.metric("New", _run['new'])
+        m3.metric("Duplicates", _run['dupes'])
+        m4.metric("Master total", _run['master_total'])
+
+        st.caption("Tick ✅ Select for anyone you want, then add them to your shortlist.")
+        edit_df = pd.DataFrame(recs, columns=disp_cols)
+        edit_df.insert(0, "✅ Select", False)
+        edited = st.data_editor(
+            edit_df, use_container_width=True, hide_index=True, key="results_editor",
+            column_config={"✅ Select": st.column_config.CheckboxColumn("✅ Select")},
+            disabled=[c for c in edit_df.columns if c != "✅ Select"])
+        a1, a2 = st.columns([1, 2])
+        if a1.button("➕ Add selected to Shortlist", use_container_width=True):
+            picked = [recs[i] for i in edited.index[edited["✅ Select"] == True].tolist()]
+            rows = [{"Added": _run['today'], "Sourced Role": _run['role'],
+                     "Fit Score": r.get("Fit Score", ""), "First Name": r.get("First Name", ""),
+                     "Last Name": r.get("Last Name", ""), "Email": r.get("Email", ""),
+                     "Current Title": r.get("Current Title", ""), "Current Company": r.get("Current Company", ""),
+                     "Location": r.get("Location", ""), "LinkedIn URL": r.get("LinkedIn URL", ""),
+                     "Status": ""} for r in picked]
+            added = add_to_shortlist(rows)
+            if added:
+                st.success(f"Added {added} to your shortlist — open the ⭐ Shortlist tab to email them.")
+            else:
+                st.info("Nothing new added (either none were selected or they're already shortlisted).")
+        if len(recs) < _run['size']:
+            st.caption(f"ℹ️ Only {len(recs)} matched — the {_run['role']}"
+                       f"{' open-to-work' if _run['otw_only'] else ''} pool for {_run['location']} is smaller "
+                       f"than the {_run['size']} requested (backfill already over-pulled to try to reach it).")
+        st.download_button("⬇ Download Excel",
+                           build_excel_bytes(recs, cols=disp_cols, summary=_run['summary']),
+                           file_name=f"sales_reps_{str(_run['location']).replace(' ','_')}_{_run['today']}.xlsx",
+                           mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
     else:
         st.markdown(
             '<div class="ae-empty">'
             '<div class="big">🔍</div>'
             '<div class="t">Your sourced reps will appear here</div>'
-            '<div class="s">Pick a location and size above, then run a search to build your list.</div>'
+            '<div class="s">Pick a role, location and size above, then run a search to build your list.</div>'
             '</div>', unsafe_allow_html=True)
 
 # ---------------------------- Previous Searches ----------------------------
@@ -962,6 +1082,77 @@ with tab_master:
                            file_name=f"sales_reps_master_{stamp}.xlsx",
                            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
                            key="dl_master")
+
+# ------------------------------- Shortlist -------------------------------
+with tab_shortlist:
+    st.markdown('<p class="ae-label">⭐ Shortlist</p>', unsafe_allow_html=True)
+    st.markdown('<p class="ae-help">People you picked from search results. Compose, preview, and export outreach here.</p>',
+                unsafe_allow_html=True)
+    sl = load_shortlist()
+    if not sl:
+        st.markdown(
+            '<div class="ae-empty"><div class="big">⭐</div>'
+            '<div class="t">Your shortlist is empty</div>'
+            '<div class="s">On the New Search tab, tick people and click "Add selected to Shortlist".</div></div>',
+            unsafe_allow_html=True)
+    else:
+        sldf = pd.DataFrame(sl)
+        so = [c for c in SHORTLIST_HEADERS if c in sldf.columns]
+        sldf = sldf[so]
+        n_email = sum(1 for r in sl if str(r.get('Email', '')).strip())
+        st.markdown(f'<div class="ae-result">⭐ {len(sl)} on the shortlist · {n_email} have an email on file</div>',
+                    unsafe_allow_html=True)
+        st.dataframe(sldf, use_container_width=True, hide_index=True)
+
+        with st.expander("Remove people from the shortlist"):
+            labels = [f"{r.get('First Name','')} {r.get('Last Name','')} — {r.get('Current Company','')}".strip()
+                      for r in sl]
+            rem = st.multiselect("Select people to remove", options=list(range(len(sl))),
+                                 format_func=lambda i: labels[i])
+            if st.button("Remove selected") and rem:
+                keep = [r for i, r in enumerate(sl) if i not in set(rem)]
+                replace_shortlist(keep)
+                st.rerun()
+
+        st.divider()
+        st.markdown("#### ✉️ Outreach email")
+        st.warning("🧪 **Test mode — this app does not send any emails yet.** It builds preview drafts you can "
+                   "review and download. Automated sending (starting with test copies to yourself) gets wired up "
+                   "once you choose an email service — nothing goes to candidates until you explicitly enable it.")
+        subj = st.text_input("Subject", value=st.session_state.get('email_subject', DEFAULT_SUBJECT),
+                             key='email_subject')
+        body = st.text_area("Body", value=st.session_state.get('email_body', DEFAULT_BODY),
+                            height=280, key='email_body')
+        st.caption("Personalization placeholders: `{first_name}` `{last_name}` `{title}` `{company}` `{role}`")
+
+        recipients = [r for r in sl if str(r.get('Email', '')).strip()]
+        no_email = len(sl) - len(recipients)
+        if recipients:
+            names = [f"{r.get('First Name','')} {r.get('Last Name','')} <{r.get('Email','')}>" for r in recipients]
+            pick = st.selectbox("Preview for", options=list(range(len(recipients))),
+                                format_func=lambda i: names[i])
+            pr = recipients[pick]
+            st.markdown(f"**To:** {pr.get('Email','')}")
+            st.markdown(f"**Subject:** {fill_template(subj, pr)}")
+            st.code(fill_template(body, pr))
+        if no_email:
+            st.caption(f"⚠️ {no_email} shortlisted "
+                       f"{'person has' if no_email == 1 else 'people have'} no email on file — they'll be skipped.")
+
+        sender = ""
+        try:
+            sender = st.secrets.get("EMAIL_FROM", "")
+        except Exception:
+            pass
+        d1, d2 = st.columns(2)
+        d1.download_button("⬇ Download drafts (.eml, opens in Outlook)",
+                           build_drafts_zip(recipients, subj, body, sender),
+                           file_name="outreach_drafts.zip", mime="application/zip",
+                           disabled=not recipients, use_container_width=True)
+        d2.download_button("⬇ Download as CSV (mail merge)",
+                           build_drafts_csv(recipients, subj, body),
+                           file_name="outreach_drafts.csv", mime="text/csv",
+                           disabled=not recipients, use_container_width=True, key="dl_csv")
 
 st.markdown('<div class="ae-footer">Albireo Energy · Internal sourcing tool · Powered by LinkedIn public data via Apify</div>',
             unsafe_allow_html=True)
