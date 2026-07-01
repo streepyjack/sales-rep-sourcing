@@ -1344,13 +1344,16 @@ with tab_shortlist:
                     if any(k in err.lower() for k in ("admin", "consent", "aadsts65001", "aadsts9000")):
                         st.warning("Your tenant requires an **admin** to approve Mail.Send — that's the option-1 "
                                    "path. Tell me and I'll switch to the admin-approved setup.")
-                st.caption("One-time: connect your Outlook so the app can send on your behalf (no manual step). "
-                           "You'll sign in with your Albireo account and approve, then land back here.")
-                _url = graph_auth_url()
-                st.markdown(
-                    f'<a href="{_url}" target="_top" style="display:inline-block;background:{NAVY};color:#fff;'
-                    f'padding:11px 20px;border-radius:9px;text-decoration:none;font-weight:700;">'
-                    f'🔗 Connect Outlook</a>', unsafe_allow_html=True)
+                st.caption("One-time: connect your Outlook so the app can send for you. Click below, sign in with "
+                           "your Albireo account, and approve — you'll return to the app with a ✅ connected "
+                           "message. (If it opens a new tab, just use whichever tab shows the app afterward.)")
+                try:
+                    _url = graph_auth_url()
+                except Exception as e:
+                    _url = ""
+                    st.error(f"Couldn't build the sign-in link: {e}")
+                if _url:
+                    st.link_button("🔗 Connect Outlook", _url, type="primary")
             else:
                 st.success("✅ Outlook connected — ready to send.")
                 pick_names = [f"{r.get('First Name','')} {r.get('Last Name','')} <{r.get('Email','')}>"
