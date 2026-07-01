@@ -737,6 +737,39 @@ def build_drafts_csv(people, subject_tmpl, body_tmpl):
              "Body": fill_template(body_tmpl, r)} for r in people]
     return pd.DataFrame(rows, columns=["To", "Subject", "Body"]).to_csv(index=False).encode("utf-8")
 
+# ============================ login (Microsoft SSO) ============================
+# Only staff on this domain may use the app. Set to "" to allow any Microsoft account.
+ALLOWED_EMAIL_DOMAIN = "albireoenergy.com"
+
+def _auth_configured():
+    try:
+        return "auth" in st.secrets
+    except Exception:
+        return False
+
+def _user_email():
+    try:
+        return (st.user.get("email") or st.user.get("preferred_username") or "").lower()
+    except Exception:
+        return ""
+
+def require_login():
+    """Gate the app behind Microsoft SSO once the [auth] secrets are configured.
+    Until then it's a no-op, so the app keeps working during setup."""
+    if not _auth_configured():
+        return
+    if not st.user.is_logged_in:
+        st.markdown("### 🔐 Sign in required")
+        st.write("This tool is restricted to Albireo Energy staff. Please sign in to continue.")
+        st.button("Sign in with Microsoft", type="primary", on_click=st.login)
+        st.stop()
+    email = _user_email()
+    if ALLOWED_EMAIL_DOMAIN and not email.endswith("@" + ALLOWED_EMAIL_DOMAIN):
+        st.error(f"Access is restricted to @{ALLOWED_EMAIL_DOMAIN} accounts. "
+                 f"You're signed in as {email or 'an unrecognized account'}.")
+        st.button("Sign out", on_click=st.logout)
+        st.stop()
+
 # ============================ UI ============================
 st.set_page_config(page_title="Albireo Energy · Sales Rep Sourcing", page_icon="🎯", layout="wide")
 
@@ -840,6 +873,12 @@ st.markdown("""
     <h1 class="ae-title">Sales Rep Sourcing</h1>
 </div>
 """, unsafe_allow_html=True)
+
+require_login()  # Microsoft SSO gate (active once [auth] secrets are configured)
+if _auth_configured() and st.user.is_logged_in:
+    _lc = st.columns([6, 1])
+    _lc[0].caption(f"🔐 Signed in as {_user_email()}")
+    _lc[1].button("Log out", on_click=st.logout, use_container_width=True)
 
 tab_search, tab_history, tab_master, tab_shortlist = st.tabs(
     ["🔎  New Search", "🕘  Previous Searches", "📒  Master List", "⭐  Shortlist"])
