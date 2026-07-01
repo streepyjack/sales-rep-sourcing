@@ -3,7 +3,7 @@ North Texas Sales Rep Sourcing — web app
 Run-and-download tool. Users pick a location and size; verticals are fixed
 (baked into the Apify task). Deploys free to Streamlit Community Cloud.
 """
-import io, datetime, re, json, os, zipfile, urllib.parse
+import io, datetime, re, json, os, zipfile, urllib.parse, time
 from email.message import EmailMessage
 import pandas as pd
 import streamlit as st
@@ -743,6 +743,42 @@ def outlook_compose_url(to, subject, body):
                                 quote_via=urllib.parse.quote)
     return "https://outlook.office.com/mail/deeplink/compose?" + qs
 
+# ---- automated sending via Microsoft Graph (delegated, user-consented) ----
+def _graph_tenant_id():
+    try:
+        m = re.search(r"login\.microsoftonline\.com/([^/]+)/", st.secrets["auth"]["server_metadata_url"])
+        return m.group(1) if m else "organizations"
+    except Exception:
+        return "organizations"
+
+def _graph_client_id():
+    try:
+        return st.secrets["auth"]["client_id"]
+    except Exception:
+        return ""
+
+def _msal_app():
+    import msal
+    return msal.PublicClientApplication(
+        _graph_client_id(), authority=f"https://login.microsoftonline.com/{_graph_tenant_id()}")
+
+def graph_send_mail(token, to_email, subject, body):
+    """Send one message as the connected user. Returns (ok, detail)."""
+    import requests
+    payload = {"message": {"subject": subject,
+                           "body": {"contentType": "Text", "content": body},
+                           "toRecipients": [{"emailAddress": {"address": to_email}}]},
+               "saveToSentItems": True}
+    try:
+        r = requests.post("https://graph.microsoft.com/v1.0/me/sendMail",
+                          headers={"Authorization": "Bearer " + token, "Content-Type": "application/json"},
+                          json=payload, timeout=30)
+    except Exception as e:
+        return False, f"network error: {e}"
+    if r.status_code in (200, 202):
+        return True, ""
+    return False, f"HTTP {r.status_code}: {(r.text or '')[:200]}"
+
 # ============================ login (Microsoft SSO) ============================
 # Only staff on this domain may use the app. Set to "" to allow any Microsoft account.
 ALLOWED_EMAIL_DOMAIN = "albireoenergy.com"
@@ -1241,9 +1277,8 @@ with tab_shortlist:
 
         st.divider()
         st.markdown("#### ✉️ Outreach email")
-        st.info("Write your message below, then click **Open in Outlook** next to a person — a compose window "
-                "opens in your own Outlook, pre-filled and ready. You review and hit **Send**. Emails come from "
-                "your account; nothing is sent automatically.")
+        st.info("Write your message below. Then either **connect Outlook once and select-and-send automatically**, "
+                "or **open each in Outlook** to send manually. Either way, mail goes from your own Albireo account.")
         subj = st.text_input("Subject", value=st.session_state.get('email_subject', DEFAULT_SUBJECT),
                              key='email_subject')
         body = st.text_area("Body", value=st.session_state.get('email_body', DEFAULT_BODY),
@@ -1261,7 +1296,72 @@ with tab_shortlist:
             st.markdown(f"**Subject:** {fill_template(subj, pr)}")
             st.code(fill_template(body, pr))
 
-            st.markdown("##### 📨 Send from your Outlook")
+            # ---------- automated send (Microsoft Graph, user-consented) ----------
+            st.markdown("##### ⚡ Select & send automatically")
+            connected = st.session_state.get("graph_token") and time.time() < st.session_state.get("graph_token_exp", 0)
+            if not connected:
+                st.caption("One-time: connect your Outlook so the app can send on your behalf (no manual step).")
+                if st.button("🔗 Connect Outlook"):
+                    try:
+                        flow = _msal_app().initiate_device_flow(scopes=["Mail.Send"])
+                        if "user_code" not in flow:
+                            st.error("Couldn't start sign-in: " + str(flow.get("error_description", flow)))
+                        else:
+                            flow["expires_at"] = time.time() + 300  # cap the wait at 5 min
+                            st.session_state["graph_flow"] = flow
+                            st.rerun()
+                    except Exception as e:
+                        st.error(f"Connect failed: {e}")
+                flow = st.session_state.get("graph_flow")
+                if flow:
+                    st.info(f"**Step 1:** open **{flow['verification_uri']}** and enter code **{flow['user_code']}**, "
+                            "then sign in with your Albireo account and approve.")
+                    if st.button("✅ I approved — finish connecting"):
+                        try:
+                            result = _msal_app().acquire_token_by_device_flow(flow)
+                            if "access_token" in result:
+                                st.session_state["graph_token"] = result["access_token"]
+                                st.session_state["graph_token_exp"] = time.time() + result.get("expires_in", 3600) - 60
+                                st.session_state.pop("graph_flow", None)
+                                st.rerun()
+                            else:
+                                err = str(result.get("error_description", result))
+                                st.error("Sign-in failed: " + err[:300])
+                                if any(k in err.lower() for k in ("admin", "consent", "aadsts65001", "aadsts900")):
+                                    st.warning("Your tenant appears to require an **admin** to approve Mail.Send — "
+                                               "that's the option-1 path. Tell me and I'll switch to the "
+                                               "admin-approved setup.")
+                        except Exception as e:
+                            st.error(f"Finish failed: {e}")
+            else:
+                st.success("✅ Outlook connected — ready to send.")
+                pick_names = [f"{r.get('First Name','')} {r.get('Last Name','')} <{r.get('Email','')}>"
+                              for r in recipients]
+                chosen = st.multiselect("Select who to email", options=list(range(len(recipients))),
+                                        format_func=lambda i: pick_names[i], default=list(range(len(recipients))))
+                if st.button(f"📤 Send to {len(chosen)} selected", type="primary", disabled=not chosen):
+                    sent, failed = 0, []
+                    prog = st.progress(0.0, text="Sending…")
+                    for n, i in enumerate(chosen, 1):
+                        r = recipients[i]
+                        ok, detail = graph_send_mail(st.session_state["graph_token"], r.get("Email", ""),
+                                                     fill_template(subj, r), fill_template(body, r))
+                        if ok:
+                            sent += 1
+                        else:
+                            failed.append(f"{r.get('Email','')} — {detail}")
+                            if detail.startswith("HTTP 401"):
+                                st.session_state.pop("graph_token", None)  # token expired -> reconnect
+                        prog.progress(n / len(chosen), text=f"Sent {n} of {len(chosen)}…")
+                    prog.empty()
+                    if sent:
+                        st.success(f"✅ Sent {sent} email(s) from your Outlook (check your Sent Items).")
+                    if failed:
+                        st.error("Some didn't send:\n\n" + "\n\n".join(failed[:10]))
+                st.button("Disconnect Outlook", on_click=lambda: st.session_state.pop("graph_token", None))
+
+            st.divider()
+            st.markdown("##### 📨 Or open each in your Outlook")
             st.caption("Each button opens a pre-filled compose window in your Outlook — review and Send.")
             cols = st.columns(3)
             for i, r in enumerate(recipients):
