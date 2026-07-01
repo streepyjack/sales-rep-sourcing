@@ -3,7 +3,7 @@ North Texas Sales Rep Sourcing — web app
 Run-and-download tool. Users pick a location and size; verticals are fixed
 (baked into the Apify task). Deploys free to Streamlit Community Cloud.
 """
-import io, datetime, re, json, os, zipfile
+import io, datetime, re, json, os, zipfile, urllib.parse
 from email.message import EmailMessage
 import pandas as pd
 import streamlit as st
@@ -737,6 +737,12 @@ def build_drafts_csv(people, subject_tmpl, body_tmpl):
              "Body": fill_template(body_tmpl, r)} for r in people]
     return pd.DataFrame(rows, columns=["To", "Subject", "Body"]).to_csv(index=False).encode("utf-8")
 
+def outlook_compose_url(to, subject, body):
+    """Deep link that opens a pre-filled compose window in the user's Outlook."""
+    qs = urllib.parse.urlencode({"to": to or "", "subject": subject, "body": body},
+                                quote_via=urllib.parse.quote)
+    return "https://outlook.office.com/mail/deeplink/compose?" + qs
+
 # ============================ login (Microsoft SSO) ============================
 # Only staff on this domain may use the app. Set to "" to allow any Microsoft account.
 ALLOWED_EMAIL_DOMAIN = "albireoenergy.com"
@@ -1235,9 +1241,9 @@ with tab_shortlist:
 
         st.divider()
         st.markdown("#### ✉️ Outreach email")
-        st.warning("🧪 **Test mode — this app does not send any emails yet.** It builds preview drafts you can "
-                   "review and download. Automated sending (starting with test copies to yourself) gets wired up "
-                   "once you choose an email service — nothing goes to candidates until you explicitly enable it.")
+        st.info("Write your message below, then click **Open in Outlook** next to a person — a compose window "
+                "opens in your own Outlook, pre-filled and ready. You review and hit **Send**. Emails come from "
+                "your account; nothing is sent automatically.")
         subj = st.text_input("Subject", value=st.session_state.get('email_subject', DEFAULT_SUBJECT),
                              key='email_subject')
         body = st.text_area("Body", value=st.session_state.get('email_body', DEFAULT_BODY),
@@ -1254,10 +1260,20 @@ with tab_shortlist:
             st.markdown(f"**To:** {pr.get('Email','')}")
             st.markdown(f"**Subject:** {fill_template(subj, pr)}")
             st.code(fill_template(body, pr))
+
+            st.markdown("##### 📨 Send from your Outlook")
+            st.caption("Each button opens a pre-filled compose window in your Outlook — review and Send.")
+            cols = st.columns(3)
+            for i, r in enumerate(recipients):
+                url = outlook_compose_url(r.get('Email', ''), fill_template(subj, r), fill_template(body, r))
+                label = f"✉️ {r.get('First Name','')} {r.get('Last Name','')}".strip()
+                cols[i % 3].link_button(label, url, use_container_width=True)
         if no_email:
             st.caption(f"⚠️ {no_email} shortlisted "
                        f"{'person has' if no_email == 1 else 'people have'} no email on file — they'll be skipped.")
 
+        st.divider()
+        st.caption("Prefer to send from another tool? Export the drafts instead:")
         sender = ""
         try:
             sender = st.secrets.get("EMAIL_FROM", "")
