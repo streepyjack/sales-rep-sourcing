@@ -1368,15 +1368,17 @@ with tab_shortlist:
         # Job opening picker — auto-loaded from Albireo's Workable careers page
         _openings = load_job_openings()
         _labels = (["— Select a job opening —"]
-                   + [f"{o['title']} · {o['location']}" for o in _openings] + ["Custom link…"])
+                   + [f"{o['title']}  —  {(o['location'] or '').replace(', United States', '')}"
+                      for o in _openings] + ["Custom link…"])
         _choice = st.selectbox("Job description link (fills {job_link})", _labels,
                                key="job_opening_choice",
                                help="Openings pull live from apply.workable.com/albireo-energy")
         if _choice == "Custom link…":
             _job_link = st.text_input("Paste a link", key="job_link_custom", placeholder="https://…")
         elif _choice != "— Select a job opening —":
-            _job_link = _openings[_labels.index(_choice) - 1]["url"]
-            st.caption(f"🔗 {_job_link}")
+            _sel = _openings[_labels.index(_choice) - 1]
+            _job_link = _sel["url"]
+            st.caption(f"🔗 **{_sel['title']}** · 📍 {_sel['location']}  \n{_job_link}")
         else:
             _job_link = ""
         if not _openings:
