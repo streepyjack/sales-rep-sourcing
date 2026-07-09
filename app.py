@@ -583,7 +583,8 @@ def _ws(title, headers):
 # Cleared explicitly after any write so the UI still reflects changes immediately.
 @st.cache_data(ttl=120, show_spinner=False)
 def _read_records(title):
-    hdrs = {"Master": MASTER_HEADERS, "Searches": SEARCH_HEADERS, "Shortlist": SHORTLIST_HEADERS}
+    hdrs = {"Master": MASTER_HEADERS, "Searches": SEARCH_HEADERS,
+            "Shortlist": SHORTLIST_HEADERS, "Settings": SETTINGS_HEADERS}
     return _ws(title, hdrs[title]).get_all_records()
 
 def _invalidate_reads():
@@ -687,6 +688,46 @@ def replace_shortlist(rows):
         _invalidate_reads()
     else:
         st.session_state["shortlist"] = list(rows)
+
+# ---- per-user settings (e.g. saved calendar link), keyed by login email ----
+SETTINGS_HEADERS = ["User", "Calendar Link"]
+
+def get_user_setting(email, field, default=""):
+    if not email:
+        return default
+    if gs_configured():
+        try:
+            for r in _read_records("Settings"):
+                if str(r.get("User", "")).strip().lower() == email.lower():
+                    return r.get(field) or default
+        except Exception:
+            return default
+        return default
+    return st.session_state.get(f"_setting_{field}", default)
+
+def set_user_setting(email, field, value):
+    if not email:
+        return
+    if gs_configured():
+        try:
+            ws = _ws("Settings", SETTINGS_HEADERS)
+            _ensure_columns(ws, SETTINGS_HEADERS)
+            rows = ws.get_all_records()
+            found = False
+            for r in rows:
+                if str(r.get("User", "")).strip().lower() == email.lower():
+                    r[field] = value; found = True
+                    break
+            if not found:
+                rows.append({"User": email, field: value})
+            ws.clear()
+            ws.update(range_name="A1",
+                      values=[SETTINGS_HEADERS] + [[r.get(h, "") for h in SETTINGS_HEADERS] for r in rows])
+            _invalidate_reads()
+        except Exception as e:
+            st.warning(f"Couldn't save your settings: {e}")
+    else:
+        st.session_state[f"_setting_{field}"] = value
 
 # ============================ outreach email (drafts only — no sending) ============================
 DEFAULT_SUBJECT = "{role} opportunity at Albireo Energy"
@@ -1400,8 +1441,13 @@ with tab_shortlist:
         if st.button("🔄 Refresh openings", help="Reload the list from Workable now"):
             load_job_openings.clear(); st.rerun()
         st.session_state["email_job_link"] = _job_link
+        if "email_calendar_link" not in st.session_state:
+            st.session_state["email_calendar_link"] = get_user_setting(_user_email(), "Calendar Link", "")
         st.text_input("Your scheduling / calendar link", key="email_calendar_link",
+                      on_change=lambda: set_user_setting(_user_email(), "Calendar Link",
+                                                         st.session_state.get("email_calendar_link", "")),
                       placeholder="e.g. your Microsoft Bookings or Calendly link — fills {calendar_link}")
+        st.caption("💾 Saved to your profile — it'll be pre-filled next time you sign in.")
         st.caption("Personalization placeholders: `{first_name}` `{last_name}` `{title}` `{company}` "
                    "`{role}` `{job_link}` `{calendar_link}` `{sender_name}`")
 
