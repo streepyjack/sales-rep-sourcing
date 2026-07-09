@@ -584,7 +584,8 @@ def _ws(title, headers):
 @st.cache_data(ttl=120, show_spinner=False)
 def _read_records(title):
     hdrs = {"Master": MASTER_HEADERS, "Searches": SEARCH_HEADERS,
-            "Shortlist": SHORTLIST_HEADERS, "Settings": SETTINGS_HEADERS}
+            "Shortlist": SHORTLIST_HEADERS, "Settings": SETTINGS_HEADERS,
+            "Campaign": CAMPAIGN_HEADERS}
     return _ws(title, hdrs[title]).get_all_records()
 
 def _invalidate_reads():
@@ -689,6 +690,42 @@ def replace_shortlist(rows):
     else:
         st.session_state["shortlist"] = list(rows)
 
+# ---- drip campaign log: one row per initial email sent ----
+CAMPAIGN_HEADERS = ["Sent At", "Sender", "Email", "First Name", "Last Name", "Role",
+                    "Job Link", "Calendar Link", "Follow-up Sent At", "Outcome"]
+FOLLOWUP_DELAY_DAYS = 4
+
+def load_campaign():
+    if gs_configured():
+        try:
+            return _read_records("Campaign")
+        except Exception as e:
+            st.warning(f"Couldn't read the campaign log: {e}")
+            return []
+    return st.session_state.setdefault("campaign", [])
+
+def save_campaign(rows):
+    if not rows:
+        return
+    if gs_configured():
+        ws = _ws("Campaign", CAMPAIGN_HEADERS)
+        header = _ensure_columns(ws, CAMPAIGN_HEADERS)
+        ws.append_rows([[r.get(h, "") for h in header] for r in rows],
+                       value_input_option="USER_ENTERED")
+        _invalidate_reads()
+    else:
+        st.session_state.setdefault("campaign", []).extend(rows)
+
+def replace_campaign(rows):
+    if gs_configured():
+        ws = _ws("Campaign", CAMPAIGN_HEADERS)
+        ws.clear()
+        ws.update(range_name="A1",
+                  values=[CAMPAIGN_HEADERS] + [[r.get(h, "") for h in CAMPAIGN_HEADERS] for r in rows])
+        _invalidate_reads()
+    else:
+        st.session_state["campaign"] = list(rows)
+
 # ---- per-user settings (e.g. saved calendar link), keyed by login email ----
 SETTINGS_HEADERS = ["User", "Calendar Link"]
 
@@ -744,12 +781,30 @@ DEFAULT_BODY = (
     "Albireo Energy"
 )
 
+# Follow-up (drip) email — sent ~4 days later if no reply/booking. Same placeholders.
+DEFAULT_FOLLOWUP_SUBJECT = "Following up — {role} at Albireo Energy"
+DEFAULT_FOLLOWUP_BODY = (
+    "Hello {first_name},\n\n"
+    "I wanted to circle back on my note below about the {role} opportunity at Albireo Energy. "
+    "I know schedules get busy, so I didn't want it to slip through the cracks.\n\n"
+    "If you're open to learning more, here's the role again:\n"
+    "{job_link}\n\n"
+    "And you can grab a time that works for you directly on my calendar:\n"
+    "{calendar_link}\n\n"
+    "If now isn't the right time, no problem at all — I'd still welcome the chance to connect down the road.\n\n"
+    "Best,\n"
+    "{sender_name}\n"
+    "Albireo Energy"
+)
+
 def fill_template(text, rec):
+    # Prefer per-record links (used for follow-ups from the campaign log); otherwise the
+    # values currently entered in the composer.
     try:
-        job_link = st.session_state.get("email_job_link", "")
-        calendar_link = st.session_state.get("email_calendar_link", "")
+        job_link = rec.get("Job Link") or st.session_state.get("email_job_link", "")
+        calendar_link = rec.get("Calendar Link") or st.session_state.get("email_calendar_link", "")
     except Exception:
-        job_link = calendar_link = ""
+        job_link = rec.get("Job Link", ""); calendar_link = rec.get("Calendar Link", "")
     repl = {
         "{first_name}": rec.get("First Name", ""), "{last_name}": rec.get("Last Name", ""),
         "{role}": rec.get("Sourced Role", "") or rec.get("Role", ""),
@@ -822,13 +877,16 @@ def _msal_conf_app():
         _graph_client_id(), authority=f"https://login.microsoftonline.com/{_graph_tenant_id()}",
         client_credential=_graph_client_secret())
 
+# Mail.Send = send; Mail.Read = detect replies; Calendars.Read = detect bookings.
+GRAPH_SCOPES = ["Mail.Send", "Mail.Read", "Calendars.Read"]
+
 def graph_auth_url():
     return _msal_conf_app().get_authorization_request_url(
-        ["Mail.Send"], redirect_uri=GRAPH_REDIRECT_URI, prompt="select_account")
+        GRAPH_SCOPES, redirect_uri=GRAPH_REDIRECT_URI, prompt="select_account")
 
 def graph_exchange_code(code):
     return _msal_conf_app().acquire_token_by_authorization_code(
-        code, scopes=["Mail.Send"], redirect_uri=GRAPH_REDIRECT_URI)
+        code, scopes=GRAPH_SCOPES, redirect_uri=GRAPH_REDIRECT_URI)
 
 def graph_send_mail(token, to_email, subject, body):
     """Send one message as the connected user. Returns (ok, detail)."""
@@ -846,6 +904,57 @@ def graph_send_mail(token, to_email, subject, body):
     if r.status_code in (200, 202):
         return True, ""
     return False, f"HTTP {r.status_code}: {(r.text or '')[:200]}"
+
+def _utc_now_iso():
+    return datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+
+def _parse_iso(s):
+    try:
+        return datetime.datetime.fromisoformat(str(s).replace("Z", "+00:00"))
+    except Exception:
+        return None
+
+def graph_has_reply(token, prospect_email, since_iso):
+    """True/False if the prospect emailed the user since `since_iso`; None if undetermined."""
+    import requests
+    try:
+        r = requests.get("https://graph.microsoft.com/v1.0/me/messages",
+                         headers={"Authorization": "Bearer " + token, "ConsistencyLevel": "eventual"},
+                         params={"$search": f'"from:{prospect_email}"', "$top": "10",
+                                 "$select": "from,receivedDateTime"}, timeout=25)
+        if r.status_code != 200:
+            return None
+        since = _parse_iso(since_iso)
+        for m in r.json().get("value", []):
+            addr = (((m.get("from") or {}).get("emailAddress") or {}).get("address") or "").lower()
+            when = _parse_iso(m.get("receivedDateTime"))
+            if addr == prospect_email.lower() and (not since or (when and when >= since)):
+                return True
+        return False
+    except Exception:
+        return None
+
+def graph_has_booking(token, prospect_email, since_iso, until_iso):
+    """True/False if a calendar event with the prospect exists in the window; None if undetermined."""
+    import requests
+    try:
+        r = requests.get("https://graph.microsoft.com/v1.0/me/calendarView",
+                         headers={"Authorization": "Bearer " + token},
+                         params={"startDateTime": since_iso, "endDateTime": until_iso, "$top": "100",
+                                 "$select": "attendees,organizer,subject,start"}, timeout=25)
+        if r.status_code != 200:
+            return None
+        pe = prospect_email.lower()
+        for ev in r.json().get("value", []):
+            for a in ev.get("attendees", []):
+                if (((a.get("emailAddress") or {}).get("address") or "").lower()) == pe:
+                    return True
+            org = (((ev.get("organizer") or {}).get("emailAddress") or {}).get("address") or "").lower()
+            if org == pe:
+                return True
+        return False
+    except Exception:
+        return None
 
 # ---- live job openings from Albireo's Workable careers page ----
 @st.cache_data(ttl=259200, show_spinner=False)  # auto-refresh at most every ~3 days
@@ -1068,8 +1177,8 @@ elif "error" in st.query_params:
                                                    or st.query_params.get("error"))[:400]
     st.query_params.clear()
 
-tab_search, tab_history, tab_master, tab_shortlist = st.tabs(
-    ["🔎  New Search", "🕘  Previous Searches", "📒  Master List", "⭐  Shortlist"])
+tab_search, tab_history, tab_master, tab_shortlist, tab_followups = st.tabs(
+    ["🔎  New Search", "🕘  Previous Searches", "📒  Master List", "⭐  Shortlist", "🔁  Follow-ups"])
 
 # ------------------------------- New Search -------------------------------
 with tab_search:
@@ -1489,7 +1598,7 @@ with tab_shortlist:
                 chosen = st.multiselect("Select who to email", options=list(range(len(recipients))),
                                         format_func=lambda i: pick_names[i], default=list(range(len(recipients))))
                 if st.button(f"📤 Send to {len(chosen)} selected", type="primary", disabled=not chosen):
-                    sent, failed = 0, []
+                    sent, failed, camp = 0, [], []
                     prog = st.progress(0.0, text="Sending…")
                     for n, i in enumerate(chosen, 1):
                         r = recipients[i]
@@ -1497,12 +1606,22 @@ with tab_shortlist:
                                                      fill_template(subj, r), fill_template(body, r))
                         if ok:
                             sent += 1
+                            camp.append({
+                                "Sent At": _utc_now_iso(), "Sender": _user_email(),
+                                "Email": r.get("Email", ""), "First Name": r.get("First Name", ""),
+                                "Last Name": r.get("Last Name", ""),
+                                "Role": r.get("Sourced Role", "") or r.get("Role", ""),
+                                "Job Link": st.session_state.get("email_job_link", ""),
+                                "Calendar Link": st.session_state.get("email_calendar_link", ""),
+                                "Follow-up Sent At": "", "Outcome": ""})
                         else:
                             failed.append(f"{r.get('Email','')} — {detail}")
                             if detail.startswith("HTTP 401"):
                                 st.session_state.pop("graph_token", None)  # token expired -> reconnect
                         prog.progress(n / len(chosen), text=f"Sent {n} of {len(chosen)}…")
                     prog.empty()
+                    if camp:
+                        save_campaign(camp)  # log for the drip / follow-up tracker
                     if sent:
                         st.success(f"✅ Sent {sent} email(s) from your Outlook (check your Sent Items).")
                     if failed:
@@ -1537,6 +1656,123 @@ with tab_shortlist:
                            build_drafts_csv(recipients, subj, body),
                            file_name="outreach_drafts.csv", mime="text/csv",
                            disabled=not recipients, use_container_width=True, key="dl_csv")
+
+# ------------------------------- Follow-ups (drip) -------------------------------
+with tab_followups:
+    st.markdown('<p class="ae-label">🔁 Follow-ups</p>', unsafe_allow_html=True)
+    st.markdown(f'<p class="ae-help">People you emailed {FOLLOWUP_DELAY_DAYS}+ days ago who haven\'t replied '
+                'or booked a time get a follow-up. Detection uses your Outlook mail & calendar.</p>',
+                unsafe_allow_html=True)
+
+    if not gs_configured():
+        st.info("Connect the Google Sheet first — the drip needs it to track who's been emailed. See SETUP_GOOGLE_SHEETS.md.")
+    else:
+        me = _user_email()
+        campaign = [r for r in load_campaign() if str(r.get("Sender", "")).strip().lower() == me.lower()]
+        pending = [r for r in campaign
+                   if not str(r.get("Follow-up Sent At", "")).strip() and not str(r.get("Outcome", "")).strip()]
+        _now = datetime.datetime.now(datetime.timezone.utc)
+        cutoff = _now - datetime.timedelta(days=FOLLOWUP_DELAY_DAYS)
+        due_age = [r for r in pending if (_parse_iso(r.get("Sent At")) or _now) <= cutoff]
+
+        c1, c2, c3 = st.columns(3)
+        c1.metric("Initial emails sent", len(campaign))
+        c2.metric(f"Aged ≥ {FOLLOWUP_DELAY_DAYS} days", len(due_age))
+        c3.metric("Follow-ups sent", sum(1 for r in campaign if str(r.get("Follow-up Sent At", "")).strip()))
+
+        if not campaign:
+            st.markdown(
+                '<div class="ae-empty"><div class="big">🔁</div>'
+                '<div class="t">No outreach yet</div>'
+                '<div class="s">Send initial emails from the ⭐ Shortlist tab and they\'ll be tracked here.</div></div>',
+                unsafe_allow_html=True)
+        else:
+            st.markdown("##### ✉️ Follow-up message")
+            fsubj = st.text_input("Follow-up subject",
+                                  value=st.session_state.get("followup_subject", DEFAULT_FOLLOWUP_SUBJECT),
+                                  key="followup_subject")
+            fbody = st.text_area("Follow-up body",
+                                 value=st.session_state.get("followup_body", DEFAULT_FOLLOWUP_BODY),
+                                 height=240, key="followup_body")
+
+            connected = st.session_state.get("graph_token") and time.time() < st.session_state.get("graph_token_exp", 0)
+            if not connected:
+                st.warning("Connect Outlook on the **⭐ Shortlist** tab first — follow-ups need it to check "
+                           "replies/bookings and to send.")
+            elif not due_age:
+                st.success(f"Nobody has hit the {FOLLOWUP_DELAY_DAYS}-day mark yet — check back soon.")
+            else:
+                st.caption(f"{len(due_age)} people are past the {FOLLOWUP_DELAY_DAYS}-day mark. "
+                           "Check who still hasn't replied or booked, then send.")
+                if st.button("🔍 Check replies & bookings"):
+                    token = st.session_state["graph_token"]
+                    until = (_now + datetime.timedelta(days=120)).strftime("%Y-%m-%dT%H:%M:%SZ")
+                    results, prog = [], st.progress(0.0, text="Checking…")
+                    for n, r in enumerate(due_age, 1):
+                        em = r.get("Email", "")
+                        rep = graph_has_reply(token, em, r.get("Sent At"))
+                        bok = graph_has_booking(token, em, r.get("Sent At"), until)
+                        status = ("Replied" if rep is True else "Booked" if bok is True
+                                  else "Due" if (rep is False and bok is False) else "Unverified")
+                        results.append({**r, "_status": status})
+                        prog.progress(n / len(due_age), text=f"Checked {n} of {len(due_age)}…")
+                    prog.empty()
+                    st.session_state["followup_results"] = results
+                    # persist Replied/Booked outcomes so we stop chasing them
+                    allc = load_campaign(); changed = False
+                    for res in results:
+                        if res["_status"] in ("Replied", "Booked"):
+                            for row in allc:
+                                if (str(row.get("Sender", "")).lower() == me.lower()
+                                        and row.get("Email") == res.get("Email")
+                                        and row.get("Sent At") == res.get("Sent At")):
+                                    row["Outcome"] = res["_status"]; changed = True
+                    if changed:
+                        replace_campaign(allc)
+                    st.rerun()
+
+                results = st.session_state.get("followup_results", [])
+                if results:
+                    rdf = pd.DataFrame([{"Name": f"{r.get('First Name','')} {r.get('Last Name','')}".strip(),
+                                         "Email": r.get("Email", ""), "Role": r.get("Role", ""),
+                                         "Status": r["_status"]} for r in results])
+                    st.dataframe(rdf, use_container_width=True, hide_index=True)
+                    due = [r for r in results if r["_status"] == "Due"]
+                    unv = sum(1 for r in results if r["_status"] == "Unverified")
+                    if unv:
+                        st.caption(f"⚠️ {unv} couldn't be verified (mail/calendar read failed or not yet granted) — "
+                                   "left out of the send to be safe.")
+                    if due:
+                        st.markdown(f"**Preview** (to {due[0].get('First Name','')}):")
+                        st.code(fill_template(fbody, due[0]))
+                        if st.button(f"📤 Send follow-up to {len(due)} due", type="primary"):
+                            token = st.session_state["graph_token"]
+                            allc = load_campaign(); sent, failed = 0, []
+                            prog = st.progress(0.0, text="Sending follow-ups…")
+                            for n, r in enumerate(due, 1):
+                                ok, detail = graph_send_mail(token, r.get("Email", ""),
+                                                             fill_template(fsubj, r), fill_template(fbody, r))
+                                if ok:
+                                    sent += 1
+                                    for row in allc:
+                                        if (str(row.get("Sender", "")).lower() == me.lower()
+                                                and row.get("Email") == r.get("Email")
+                                                and row.get("Sent At") == r.get("Sent At")):
+                                            row["Follow-up Sent At"] = _utc_now_iso()
+                                            row["Outcome"] = "Follow-up sent"
+                                else:
+                                    failed.append(f"{r.get('Email','')} — {detail}")
+                                prog.progress(n / len(due), text=f"Sent {n} of {len(due)}…")
+                            prog.empty()
+                            replace_campaign(allc)
+                            st.session_state.pop("followup_results", None)
+                            if sent:
+                                st.success(f"✅ Sent {sent} follow-up(s) from your Outlook.")
+                            if failed:
+                                st.error("Some didn't send:\n\n" + "\n\n".join(failed[:10]))
+                            st.rerun()
+                    else:
+                        st.info("No one is currently due — they've replied, booked, or couldn't be verified.")
 
 st.markdown('<div class="ae-footer">Albireo Energy · Internal sourcing tool · Powered by LinkedIn public data via Apify</div>',
             unsafe_allow_html=True)
