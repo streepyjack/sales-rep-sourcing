@@ -689,23 +689,29 @@ def replace_shortlist(rows):
         st.session_state["shortlist"] = list(rows)
 
 # ============================ outreach email (drafts only — no sending) ============================
-DEFAULT_SUBJECT = "Exploring a {role} opportunity at Albireo Energy"
+DEFAULT_SUBJECT = "{role} opportunity at Albireo Energy"
 DEFAULT_BODY = (
-    "Hi {first_name},\n\n"
-    "I came across your background as {title} at {company} and was really impressed. "
-    "At Albireo Energy we're growing our team, and I think you could be a strong fit for a "
-    "{role} position we're hiring for.\n\n"
-    "Would you be open to a quick conversation this week?\n\n"
-    "Best regards,\n"
+    "Hello {first_name},\n\n"
+    "We are in need of a {role} at Albireo Energy. I found your profile and was wondering if you "
+    "were interested in hearing more? I have linked the job description below for your review.\n\n"
+    "You can check out the job description here:\n"
+    "{job_link}\n\n"
+    "Please reach out if you would like to set up a time to chat.\n\n"
+    "Look forward to connecting!\n\n"
     "[Your name]\n"
     "Albireo Energy"
 )
 
 def fill_template(text, rec):
+    try:
+        job_link = st.session_state.get("email_job_link", "")
+    except Exception:
+        job_link = ""
     repl = {
         "{first_name}": rec.get("First Name", ""), "{last_name}": rec.get("Last Name", ""),
         "{role}": rec.get("Sourced Role", "") or rec.get("Role", ""),
         "{title}": rec.get("Current Title", ""), "{company}": rec.get("Current Company", ""),
+        "{job_link}": job_link,
     }
     out = text or ""
     for k, v in repl.items():
@@ -1321,7 +1327,10 @@ with tab_shortlist:
                              key='email_subject')
         body = st.text_area("Body", value=st.session_state.get('email_body', DEFAULT_BODY),
                             height=280, key='email_body')
-        st.caption("Personalization placeholders: `{first_name}` `{last_name}` `{title}` `{company}` `{role}`")
+        st.text_input("Job description link", key="email_job_link",
+                      placeholder="https://…  (fills the {job_link} placeholder in the body)")
+        st.caption("Personalization placeholders: `{first_name}` `{last_name}` `{title}` `{company}` "
+                   "`{role}` `{job_link}`")
 
         recipients = [r for r in sl if str(r.get('Email', '')).strip()]
         no_email = len(sl) - len(recipients)
