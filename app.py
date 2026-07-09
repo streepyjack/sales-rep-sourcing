@@ -810,20 +810,32 @@ def load_job_openings():
     import requests
     try:
         r = requests.get("https://apply.workable.com/api/v1/widget/accounts/albireo-energy?details=true",
+                         headers={"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"},
                          timeout=15)
         jobs = r.json().get("jobs", [])
     except Exception:
         return []
+
+    def _loc(*parts):
+        return ", ".join(str(p).strip() for p in parts if p and str(p).strip())
+
     seen, out = set(), []
     for j in jobs:
         sc = (j.get("shortcode") or "").strip()
         title = (j.get("title") or "").strip()
-        loc = (j.get("location") or "").strip()
-        if not sc or (sc, loc) in seen:
+        if not sc:
             continue
-        seen.add((sc, loc))
-        out.append({"title": title, "location": loc, "shortcode": sc,
-                    "url": f"https://apply.workable.com/albireo-energy/j/{sc}/"})
+        # A job can list several locations; fall back to the top-level city/state/country.
+        places = [_loc(L.get("city"), L.get("region"), L.get("country"))
+                  for L in (j.get("locations") or []) if not L.get("hidden")]
+        if not places:
+            places = [_loc(j.get("city"), j.get("state"), j.get("country"))]
+        for loc in places:
+            if (sc, loc) in seen:
+                continue
+            seen.add((sc, loc))
+            out.append({"title": title, "location": loc, "shortcode": sc,
+                        "url": f"https://apply.workable.com/albireo-energy/j/{sc}/"})
     out.sort(key=lambda o: (o["title"], o["location"]))
     return out
 
