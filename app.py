@@ -698,7 +698,7 @@ DEFAULT_BODY = (
     "{job_link}\n\n"
     "Please reach out if you would like to set up a time to chat.\n\n"
     "Look forward to connecting!\n\n"
-    "[Your name]\n"
+    "{sender_name}\n"
     "Albireo Energy"
 )
 
@@ -711,7 +711,7 @@ def fill_template(text, rec):
         "{first_name}": rec.get("First Name", ""), "{last_name}": rec.get("Last Name", ""),
         "{role}": rec.get("Sourced Role", "") or rec.get("Role", ""),
         "{title}": rec.get("Current Title", ""), "{company}": rec.get("Current Company", ""),
-        "{job_link}": job_link,
+        "{job_link}": job_link, "{sender_name}": _user_name(),
     }
     out = text or ""
     for k, v in repl.items():
@@ -804,6 +804,29 @@ def graph_send_mail(token, to_email, subject, body):
         return True, ""
     return False, f"HTTP {r.status_code}: {(r.text or '')[:200]}"
 
+# ---- live job openings from Albireo's Workable careers page ----
+@st.cache_data(ttl=259200, show_spinner=False)  # auto-refresh at most every ~3 days
+def load_job_openings():
+    import requests
+    try:
+        r = requests.get("https://apply.workable.com/api/v1/widget/accounts/albireo-energy?details=true",
+                         timeout=15)
+        jobs = r.json().get("jobs", [])
+    except Exception:
+        return []
+    seen, out = set(), []
+    for j in jobs:
+        sc = (j.get("shortcode") or "").strip()
+        title = (j.get("title") or "").strip()
+        loc = (j.get("location") or "").strip()
+        if not sc or (sc, loc) in seen:
+            continue
+        seen.add((sc, loc))
+        out.append({"title": title, "location": loc, "shortcode": sc,
+                    "url": f"https://apply.workable.com/albireo-energy/j/{sc}/"})
+    out.sort(key=lambda o: (o["title"], o["location"]))
+    return out
+
 # ============================ login (Microsoft SSO) ============================
 # Only staff on this domain may use the app. Set to "" to allow any Microsoft account.
 ALLOWED_EMAIL_DOMAIN = "albireoenergy.com"
@@ -821,6 +844,21 @@ def _user_email():
             v = u.get(k) if hasattr(u, "get") else getattr(u, k, None)
             if v:
                 return str(v).lower()
+    except Exception:
+        pass
+    return ""
+
+def _user_name():
+    """Display name of the signed-in user (for the email signature)."""
+    try:
+        u = st.user
+        for k in ("name", "given_name"):
+            v = u.get(k) if hasattr(u, "get") else getattr(u, k, None)
+            if v:
+                return str(v)
+        e = _user_email()
+        if e:
+            return e.split("@")[0]
     except Exception:
         pass
     return ""
@@ -1327,10 +1365,27 @@ with tab_shortlist:
                              key='email_subject')
         body = st.text_area("Body", value=st.session_state.get('email_body', DEFAULT_BODY),
                             height=280, key='email_body')
-        st.text_input("Job description link", key="email_job_link",
-                      placeholder="https://…  (fills the {job_link} placeholder in the body)")
+        # Job opening picker — auto-loaded from Albireo's Workable careers page
+        _openings = load_job_openings()
+        _labels = (["— Select a job opening —"]
+                   + [f"{o['title']} · {o['location']}" for o in _openings] + ["Custom link…"])
+        _choice = st.selectbox("Job description link (fills {job_link})", _labels,
+                               key="job_opening_choice",
+                               help="Openings pull live from apply.workable.com/albireo-energy")
+        if _choice == "Custom link…":
+            _job_link = st.text_input("Paste a link", key="job_link_custom", placeholder="https://…")
+        elif _choice != "— Select a job opening —":
+            _job_link = _openings[_labels.index(_choice) - 1]["url"]
+            st.caption(f"🔗 {_job_link}")
+        else:
+            _job_link = ""
+        if not _openings:
+            st.caption("⚠️ Couldn't load openings from Workable right now — use 'Custom link…' to paste one.")
+        if st.button("🔄 Refresh openings", help="Reload the list from Workable now"):
+            load_job_openings.clear(); st.rerun()
+        st.session_state["email_job_link"] = _job_link
         st.caption("Personalization placeholders: `{first_name}` `{last_name}` `{title}` `{company}` "
-                   "`{role}` `{job_link}`")
+                   "`{role}` `{job_link}` `{sender_name}`")
 
         recipients = [r for r in sl if str(r.get('Email', '')).strip()]
         no_email = len(sl) - len(recipients)
