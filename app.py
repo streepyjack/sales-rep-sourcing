@@ -696,7 +696,8 @@ DEFAULT_BODY = (
     "were interested in hearing more? I have linked the job description below for your review.\n\n"
     "You can check out the job description here:\n"
     "{job_link}\n\n"
-    "Please reach out if you would like to set up a time to chat.\n\n"
+    "If you're interested, feel free to grab a time directly on my calendar:\n"
+    "{calendar_link}\n\n"
     "Look forward to connecting!\n\n"
     "{sender_name}\n"
     "Albireo Energy"
@@ -705,13 +706,14 @@ DEFAULT_BODY = (
 def fill_template(text, rec):
     try:
         job_link = st.session_state.get("email_job_link", "")
+        calendar_link = st.session_state.get("email_calendar_link", "")
     except Exception:
-        job_link = ""
+        job_link = calendar_link = ""
     repl = {
         "{first_name}": rec.get("First Name", ""), "{last_name}": rec.get("Last Name", ""),
         "{role}": rec.get("Sourced Role", "") or rec.get("Role", ""),
         "{title}": rec.get("Current Title", ""), "{company}": rec.get("Current Company", ""),
-        "{job_link}": job_link, "{sender_name}": _user_name(),
+        "{job_link}": job_link, "{sender_name}": _user_name(), "{calendar_link}": calendar_link,
     }
     out = text or ""
     for k, v in repl.items():
@@ -1398,8 +1400,10 @@ with tab_shortlist:
         if st.button("🔄 Refresh openings", help="Reload the list from Workable now"):
             load_job_openings.clear(); st.rerun()
         st.session_state["email_job_link"] = _job_link
+        st.text_input("Your scheduling / calendar link", key="email_calendar_link",
+                      placeholder="e.g. your Microsoft Bookings or Calendly link — fills {calendar_link}")
         st.caption("Personalization placeholders: `{first_name}` `{last_name}` `{title}` `{company}` "
-                   "`{role}` `{job_link}` `{sender_name}`")
+                   "`{role}` `{job_link}` `{calendar_link}` `{sender_name}`")
 
         recipients = [r for r in sl if str(r.get('Email', '')).strip()]
         no_email = len(sl) - len(recipients)
