@@ -290,7 +290,9 @@ def _competitor_info(d, rec):
             return ''
         for name in _COMP_NAMES:
             nl = name.lower()
-            if len(nl) <= 4:
+            # Short names (Trane, EMCOR, ABB, Harris…) match on word boundaries so we
+            # don't false-positive on words that merely contain them ("extraneous").
+            if len(nl) <= 6:
                 if re.search(r'(?<![a-z0-9])' + re.escape(nl) + r'(?![a-z0-9])', c):
                     return name
             elif nl in c or c in nl:
