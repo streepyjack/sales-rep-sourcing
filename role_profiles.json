@@ -1555,6 +1555,117 @@
           "weight": 0.05
         }
       ]
+    },
+    {
+      "role": "Mission Critical Sales Leader",
+      "family": "PLC",
+      "job_titles": [
+        "SVP Sales",
+        "Senior Vice President Sales",
+        "VP Sales",
+        "Vice President of Sales",
+        "VP Business Development",
+        "Director of Sales",
+        "Sales Director",
+        "National Sales Manager",
+        "Regional Sales Manager",
+        "Sales Manager",
+        "Business Development Director",
+        "Senior Account Executive",
+        "Account Executive",
+        "Strategic Account Manager",
+        "Mission Critical Sales",
+        "Data Center Sales",
+        "Sales Engineer"
+      ],
+      "skills": [
+        "Mission Critical",
+        "Mission Critical Systems",
+        "Mission Critical Facilities",
+        "Critical Facilities",
+        "Data Center",
+        "Data Centers",
+        "PLC",
+        "PLC Controls",
+        "Building Automation",
+        "Process Automation",
+        "Manufacturing Process Automation",
+        "Micro-Grid",
+        "Microgrid",
+        "SCADA",
+        "Instrumentation",
+        "Controls",
+        "Automation",
+        "Systems Integration",
+        "Oil & Gas",
+        "Oil and Gas",
+        "Life Sciences",
+        "Pharmaceutical",
+        "Food & Beverage",
+        "Lab",
+        "Energy",
+        "Power",
+        "UPS",
+        "Switchgear",
+        "Power Quality",
+        "Allen-Bradley",
+        "Rockwell",
+        "Ignition"
+      ],
+      "industries": [
+        "Industrial Automation",
+        "Automation Machinery Manufacturing",
+        "Measuring and Control Instrument Manufacturing",
+        "Electrical Equipment Manufacturing",
+        "Process Controls",
+        "Data Centers",
+        "Oil and Gas",
+        "Manufacturing"
+      ],
+      "verticals": [
+        "Mission Critical",
+        "Data Center",
+        "Food & Beverage",
+        "Life Sciences",
+        "Pharmaceuticals",
+        "Lab",
+        "Micro-Grid",
+        "Oil & Gas",
+        "Process Automation",
+        "Manufacturing"
+      ],
+      "industry_ids": [
+        "147",
+        "983",
+        "2468",
+        "135",
+        "25",
+        "57",
+        "24",
+        "3241"
+      ],
+      "criteria": [
+        {
+          "name": "Sales Leadership Title (SVP/VP/Director/Manager)",
+          "weight": 0.25
+        },
+        {
+          "name": "Mission Critical / Automation Industry",
+          "weight": 0.25
+        },
+        {
+          "name": "Target Vertical Match (Data Center, Pharma, Food & Bev, Life Sci)",
+          "weight": 0.2
+        },
+        {
+          "name": "Mission Critical & Controls Skills",
+          "weight": 0.15
+        },
+        {
+          "name": "Competitor / Domain Pedigree",
+          "weight": 0.15
+        }
+      ]
     }
   ],
   "competitors": {
