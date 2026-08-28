@@ -59,6 +59,38 @@ def expand_locations(locs):
             out.append(loc)
     return list(dict.fromkeys(out))
 
+# Two-letter state -> full name, used to build a state-level fallback when a targeted
+# city search resolves to nobody (some small towns aren't LinkedIn places; the actor
+# then succeeds but returns 0). States always resolve, so we retry on them.
+STATE_ABBR = {
+    "AL": "Alabama", "AK": "Alaska", "AZ": "Arizona", "AR": "Arkansas", "CA": "California",
+    "CO": "Colorado", "CT": "Connecticut", "DE": "Delaware", "FL": "Florida", "GA": "Georgia",
+    "HI": "Hawaii", "ID": "Idaho", "IL": "Illinois", "IN": "Indiana", "IA": "Iowa",
+    "KS": "Kansas", "KY": "Kentucky", "LA": "Louisiana", "ME": "Maine", "MD": "Maryland",
+    "MA": "Massachusetts", "MI": "Michigan", "MN": "Minnesota", "MS": "Mississippi",
+    "MO": "Missouri", "MT": "Montana", "NE": "Nebraska", "NV": "Nevada", "NH": "New Hampshire",
+    "NJ": "New Jersey", "NM": "New Mexico", "NY": "New York", "NC": "North Carolina",
+    "ND": "North Dakota", "OH": "Ohio", "OK": "Oklahoma", "OR": "Oregon", "PA": "Pennsylvania",
+    "RI": "Rhode Island", "SC": "South Carolina", "SD": "South Dakota", "TN": "Tennessee",
+    "TX": "Texas", "UT": "Utah", "VT": "Vermont", "VA": "Virginia", "WA": "Washington",
+    "WV": "West Virginia", "WI": "Wisconsin", "WY": "Wyoming", "DC": "District of Columbia",
+}
+
+def states_for(locs):
+    """Full state names for the chosen presets that carry a ', XX' suffix (e.g.
+    'Phoenix, AZ' -> 'Arizona'). Used only as an empty-result fallback."""
+    out = []
+    for loc in locs:
+        s = str(loc).strip()
+        if s.lower() == "remote":
+            continue
+        m = re.search(r",\s*([A-Za-z]{2})$", s)
+        if m:
+            full = STATE_ABBR.get(m.group(1).upper())
+            if full and full not in out:
+                out.append(full)
+    return out
+
 # Fixed search configuration (your verticals). Location + maxItems are set per run
 # from the UI below; everything else stays locked so targeting never drifts.
 TITLES = ["Sales Rep", "PLC", "Data Centers", "Power Quality", "Building Automation",
@@ -1252,6 +1284,15 @@ with tab_search:
             remote_only = not specifics
             # expand each pick to its metro area + nearby cities (~50 mi) for coverage
             search_locations = expand_locations(selected_locations)[:40]
+            # A targeted city list can resolve to nobody (some small towns aren't LinkedIn
+            # places; the actor still SUCCEEDS but returns 0). So if the first pass is empty,
+            # retry once on the state(s) of the chosen metros — Fit Score still ranks by
+            # proximity to the picked cities, so the metro stays on top. Remote-only skips this.
+            location_attempts = [search_locations]
+            if not remote_only:
+                fb_states = states_for(selected_locations)
+                if fb_states and fb_states != search_locations:
+                    location_attempts.append(fb_states)
             with st.spinner(f"Searching LinkedIn for {role_name}… this usually takes a minute or two."):
                 client = ApifyClient(st.secrets["APIFY_TOKEN"])
                 # Target the search with the selected role's job titles + industries.
@@ -1259,17 +1300,26 @@ with tab_search:
                 run_input["currentJobTitles"] = role["job_titles"]
                 run_input["pastJobTitles"] = role["job_titles"]
                 run_input["industryIds"] = role.get("industry_ids") or BASE_INPUT["industryIds"]
-                run_input["locations"] = search_locations
                 # Backfill (conservative, up to ~2x): over-pull so that after dropping
                 # profiles with no URL — and non-open-to-work people when that filter is
                 # on — we can still land on the requested number of matching results.
                 overpull = 2.0 if otw_only else 1.2
                 run_input["maxItems"] = min(int(round(size * overpull)), 400)
-                run = client.task(TASK_ID).call(task_input=run_input)
-                run_status = run.get("status") if isinstance(run, dict) else getattr(run, "status", None)
-                run_id = run.get("id") if isinstance(run, dict) else getattr(run, "id", None)
-                ds = _dsid(run)
-                items = [flatten(i) for i in client.dataset(ds).iterate_items()]
+                items, run_status, run_id, used_state_fallback = [], None, None, False
+                for attempt_i, locs in enumerate(location_attempts):
+                    run_input["locations"] = locs
+                    run = client.task(TASK_ID).call(task_input=run_input)
+                    run_status = run.get("status") if isinstance(run, dict) else getattr(run, "status", None)
+                    run_id = run.get("id") if isinstance(run, dict) else getattr(run, "id", None)
+                    ds = _dsid(run)
+                    items = [flatten(i) for i in client.dataset(ds).iterate_items()]
+                    if items:
+                        used_state_fallback = attempt_i > 0
+                        break
+            if used_state_fallback:
+                st.info("None of the profiles were tagged to those exact cities, so the search widened "
+                        "to **" + ", ".join(fb_states) + "** and ranked everyone by distance to your "
+                        "chosen metros. Use the Master List location filter to tighten it further.")
             recs = []
             for d in items:
                 if not val(d, 'linkedinUrl'):
