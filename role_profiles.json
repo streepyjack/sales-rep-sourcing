@@ -1666,6 +1666,131 @@
           "weight": 0.15
         }
       ]
+    },
+    {
+      "role": "BAS Service Technician",
+      "family": "BAS",
+      "job_titles": [
+        "BAS Service Technician",
+        "Service Systems Specialist",
+        "BAS Service System Specialist",
+        "Controls Technician",
+        "Building Automation Technician",
+        "BAS Technician",
+        "Controls Engineer",
+        "Application Engineer",
+        "Field Engineer",
+        "Field Service Technician",
+        "Systems Specialist",
+        "System Specialist",
+        "DDC Technician",
+        "HVAC Controls Technician"
+      ],
+      "skills": [
+        "BAS",
+        "Building Automation",
+        "Building Controls",
+        "HVAC Controls",
+        "DDC",
+        "Energy Management System",
+        "EMS",
+        "Controls Integration",
+        "Smart Buildings",
+        "Building Automation Systems",
+        "Controls Technician",
+        "Building Automation Technician",
+        "Siemens",
+        "Desigo",
+        "Apogee",
+        "PXC",
+        "PPCL",
+        "Insight",
+        "Niagara",
+        "Tridium",
+        "Niagara N4",
+        "JCI",
+        "Metasys",
+        "Distech",
+        "Honeywell",
+        "Alerton",
+        "ALC",
+        "Automated Logic",
+        "WebCTRL",
+        "Delta Controls",
+        "Schneider",
+        "Andover",
+        "Invensys",
+        "EcoStruxure",
+        "BACnet",
+        "Modbus",
+        "LonWorks",
+        "N2",
+        "MS/TP",
+        "DDC Programming",
+        "Preventive Maintenance",
+        "Repairs",
+        "Installation",
+        "Commissioning",
+        "Startup",
+        "Point-to-Point Checkout",
+        "Point-to-Point Verification",
+        "Troubleshooting",
+        "Service Calls",
+        "Field Service",
+        "Graphics",
+        "VAV",
+        "AHU",
+        "Chiller Plant",
+        "Boiler Plant",
+        "Sensors",
+        "Actuators"
+      ],
+      "industries": [
+        "Building Automation",
+        "Facilities Services",
+        "Automation Machinery Manufacturing",
+        "Building Equipment Contractors",
+        "HVAC and Refrigeration Equipment Manufacturing",
+        "Measuring and Control Instrument Manufacturing"
+      ],
+      "verticals": [
+        "Commercial Buildings",
+        "Healthcare",
+        "Education",
+        "Data Center",
+        "Government",
+        "Life Sciences",
+        "Mission Critical"
+      ],
+      "industry_ids": [
+        "122",
+        "147",
+        "453",
+        "923",
+        "983"
+      ],
+      "criteria": [
+        {
+          "name": "Controls Technician Title Match",
+          "weight": 0.2
+        },
+        {
+          "name": "BAS Platform & DDC Skills",
+          "weight": 0.35
+        },
+        {
+          "name": "Field Service / Troubleshooting Experience",
+          "weight": 0.2
+        },
+        {
+          "name": "Building Automation Industry",
+          "weight": 0.15
+        },
+        {
+          "name": "Competitor Platform Experience",
+          "weight": 0.1
+        }
+      ]
     }
   ],
   "competitors": {
