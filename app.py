@@ -22,7 +22,7 @@ LOCATION_PRESETS = [
     # Texas metros
     "Dallas-Fort Worth", "Dallas", "Fort Worth", "Austin", "Houston", "San Antonio", "Texas",
     # Albireo U.S. offices
-    "Redmond, WA", "Vancouver, WA", "Anaheim, CA", "Poway, CA", "Tempe, AZ", "Tucson, AZ",
+    "Redmond, WA", "Vancouver, WA", "Anaheim, CA", "Poway, CA", "Phoenix, AZ", "Tempe, AZ", "Tucson, AZ",
     "Salt Lake City, UT", "Denver, CO", "Omaha, NE", "Huntsville, AL", "Hoover, AL",
     "Montgomery, AL", "Tampa, FL", "Fort Lauderdale, FL", "Miami, FL", "Moosic, PA",
     "Sterling, VA", "New Castle, DE", "Gambrills, MD", "Edison, NJ", "New York City, NY",
