@@ -1791,6 +1791,135 @@
           "weight": 0.1
         }
       ]
+    },
+    {
+      "role": "Chief Financial Officer",
+      "family": "Finance",
+      "job_titles": [
+        "Chief Financial Officer",
+        "CFO",
+        "Chief Financial Officer / COO",
+        "VP Finance",
+        "Vice President of Finance",
+        "VP of Finance",
+        "SVP Finance",
+        "Senior Vice President Finance",
+        "Head of Finance",
+        "Finance Director",
+        "Director of Finance",
+        "Corporate Controller",
+        "Controller"
+      ],
+      "skills": [
+        "Private Equity",
+        "PE-Backed",
+        "Private Equity Backed",
+        "Sponsor-Backed",
+        "M&A",
+        "Mergers and Acquisitions",
+        "Acquisitions",
+        "Due Diligence",
+        "Portfolio Company",
+        "LBO",
+        "Leveraged Buyout",
+        "Buy-Side",
+        "Carve-Out",
+        "Recapitalization",
+        "Integration",
+        "Exit",
+        "Transaction",
+        "Add-On Acquisition",
+        "Startup",
+        "Start-Up",
+        "Early-Stage",
+        "Venture-Backed",
+        "Series A",
+        "Series B",
+        "Fundraising",
+        "Capital Raise",
+        "Scaling",
+        "High-Growth",
+        "Seed Stage",
+        "Construction",
+        "Construction Accounting",
+        "Construction Finance",
+        "Contractor",
+        "General Contractor",
+        "WIP",
+        "Work-in-Progress",
+        "Percentage of Completion",
+        "Job Costing",
+        "AIA Billing",
+        "Surety",
+        "Bonding",
+        "Subcontractor",
+        "Change Orders",
+        "Project-Based Accounting",
+        "Project Accounting",
+        "Revenue Recognition",
+        "Cost-to-Complete",
+        "WIP Reporting",
+        "Project Costing",
+        "ASC 606",
+        "Percentage-of-Completion",
+        "FP&A",
+        "Financial Planning and Analysis",
+        "GAAP",
+        "Financial Reporting",
+        "Treasury",
+        "Cash Flow Management",
+        "Budgeting",
+        "Forecasting",
+        "Audit",
+        "Cost Accounting",
+        "ERP",
+        "NetSuite",
+        "Sage Intacct",
+        "Viewpoint",
+        "Procore"
+      ],
+      "industries": [
+        "Construction",
+        "Nonresidential Building Construction",
+        "Building Construction",
+        "Specialty Trade Contractors",
+        "Building Equipment Contractors",
+        "Facilities Services"
+      ],
+      "verticals": [
+        "Private Equity",
+        "PE-Backed",
+        "Start-Up",
+        "Construction",
+        "Project-Based Accounting",
+        "M&A"
+      ],
+      "industry_ids": [
+        "48",
+        "413",
+        "406",
+        "435",
+        "453",
+        "122"
+      ],
+      "criteria": [
+        {
+          "name": "CFO / Finance Leadership Title",
+          "weight": 0.25
+        },
+        {
+          "name": "Construction / Built-Environment Industry",
+          "weight": 0.2
+        },
+        {
+          "name": "PE, Start-Up & Project-Accounting Experience",
+          "weight": 0.45
+        },
+        {
+          "name": "Competitor / Target-Firm Experience",
+          "weight": 0.1
+        }
+      ]
     }
   ],
   "competitors": {
